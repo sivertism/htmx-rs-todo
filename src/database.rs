@@ -31,7 +31,8 @@ pub fn delete_todo (id: usize) {
 
 }
 
-pub fn create_todo (text: String) {
+// Returns the id of the newly created todo
+pub fn create_todo (text: String) -> usize {
     let conn = get_conn();
     match conn.execute("INSERT INTO todos (task) values (?1)", &[&text]) {
         Ok(updated) => {
@@ -41,6 +42,7 @@ pub fn create_todo (text: String) {
             println!("Update failed: {}", err);
         } ,
     }
+    conn.last_insert_rowid() as usize
 }
 
 pub fn get_todos () -> Result<Vec<Todo>>{ 

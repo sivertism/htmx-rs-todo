@@ -1,8 +1,12 @@
 <!--Jinja syntax-->
 
 {%for todo in todos %}
-<li>
-  <span>{{ todo.text }}</span>
-  <button hx-delete="/todo/{{todo.id}}" hx-target="#todos" class="complete">COMPLETE</button>
-</li>
+<tr>
+  <td>{{ todo.text }}</td>
+  <td>
+  <!-- <button hx-delete="/todo/{{todo.id}}" hx-target="#todos" class="complete", hx-swap="outerHtml swap:0.5s">COMPLETE</button> -->
+  <!-- <button hx-delete="/todo/{{todo.id}}" hx-target="closest tr" hx-swap="innerHtml swap:0.5s" class="complete">COMPLETE</button> -->
+  <input type="checkbox" name="select" hx-delete="/todo/{{todo.id}}" hx-target="closest tr" hx-swap="innerHtml swap:0.5s" class="complete">
+  </td>
+</tr>
 {% endfor %}

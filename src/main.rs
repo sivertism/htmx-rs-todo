@@ -6,8 +6,9 @@ use axum::extract::Path;
 use axum::Form;
 use axum::response::IntoResponse;
 use axum::routing::{delete, get, post};
+use axum::http::StatusCode;
 use tokio::net::TcpListener;
-use todo::TodoForm;
+use todo::{Todo,TodoForm};
 use template::{HtmlTemplate, IndexTemplate, TodosTemplate};
 
 #[tokio::main]
@@ -41,17 +42,19 @@ async fn get_todos() -> impl IntoResponse {
 }
 
 // delete todo handler
-async fn delete_todo(Path(id): Path<u32>) -> impl IntoResponse {
+async fn delete_todo(Path(id): Path<u32>) -> StatusCode {
     database::delete_todo(id as usize);
-    let todos = database::get_todos().expect("failed to get todos");
-    HtmlTemplate(TodosTemplate { todos })
+    //HtmlTemplate(TodosTemplate { todos })
+    StatusCode::OK
 }
 
 pub async fn create_todo(
     form: Form<TodoForm>
     ) -> impl IntoResponse {
-    database::create_todo(form.text.clone());
-    let todos = database::get_todos().expect("Failed to get todos");
+    let id = database::create_todo(form.text.clone());
+    let todos = vec![Todo{id: id, text: form.text.clone()}];
+    println!("Todo item with id {} created", id);
+
     // could just return one todo if we fix the template to only add an item!
-    HtmlTemplate(TodosTemplate { todos })
+    HtmlTemplate(TodosTemplate {todos})
 }
