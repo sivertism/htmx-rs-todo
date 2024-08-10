@@ -23,3 +23,11 @@ where T: Template,
   }
 }
 
+use crate::todo::Todo;
+
+#[derive(Template)]
+#[template(path = "todos.html")]
+pub struct TodosTemplate{
+    // All fields passed in template can be used by Askama
+    pub todos: Vec<Todo>
+}
