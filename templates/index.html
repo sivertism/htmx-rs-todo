@@ -17,6 +17,22 @@
     opacity: 0;
     transition: opacity 1s ease-out;
   }
+
+  table {
+      margin-left: 0; /* Aligns the table to the left side of the container */
+  }
+
+  th, td:first-child, th:first-child, td:nth-child(2), th:nth-child(2) {
+      width: 5%; /* Allows the first two columns to size based on their content */
+      white-space: nowrap; /* Prevents wrapping of text in the first two columns */
+  }
+
+  .completed {
+    text-decoration: line-through;
+    color: var(--primary);
+    font-style: italic;
+  }
+
 </style>
 
 <body>
@@ -34,6 +50,11 @@
 
   <table class="todo-table">
     <tbody id="todos" hx-get="/todo" hx-target="#todos" hx-trigger="load" hx-swap="outerHtml swap:0.5s">
+    </tbody>
+  </table>
+
+  <table class="completed-table">
+    <tbody id="completed" hx-get="/completed" hx-target="#completed" hx-trigger="load" hx-swap="outerHtml swap:0.5s">
     </tbody>
   </table>
 

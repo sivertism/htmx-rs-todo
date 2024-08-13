@@ -1,12 +1,29 @@
 <!--Jinja syntax-->
 
 {%for todo in todos %}
-<tr>
-  <td>{{ todo.text }}</td>
-  <td>
-  <!-- <button hx-delete="/todo/{{todo.id}}" hx-target="#todos" class="complete", hx-swap="outerHtml swap:0.5s">COMPLETE</button> -->
-  <!-- <button hx-delete="/todo/{{todo.id}}" hx-target="closest tr" hx-swap="innerHtml swap:0.5s" class="complete">COMPLETE</button> -->
-  <input type="checkbox" name="select" hx-delete="/todo/{{todo.id}}" hx-target="closest tr" hx-swap="innerHtml swap:0.5s" class="complete">
+  <tr class={%if todo.completed %} "completed" {% else %} "incomplete" {% endif %} }}>
+    <td>
+      <input 
+        type="checkbox" 
+        name="select" 
+        hx-post="/todo/{{todo.id}}" 
+        hx-target="closest tr" 
+        hx-swap="outerHtml swap:0.5s" 
+        class="complete"
+      >
+    </td>
+    <td>
+      <button 
+        class="trash-button"
+        hx-delete="/todo/{{todo.id}}" 
+        hx-target="closest tr" 
+        hx-swap="outerHtml swap:0.5s" 
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+            <path d="M3 6h18v2H3V6zm2-2h14v2H5V4zm3 4v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V8H8zm2 2h4v10h-4V10z"/>
+        </svg>
+    </button>
   </td>
+  <td >{{ todo.text }}</td>
 </tr>
 {% endfor %}

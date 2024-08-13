@@ -9,11 +9,28 @@ fn get_conn() -> Connection {
     conn.execute(
         "create table if not exists todos (
           id integer primary key,
-          task text not null
+          task text not null,
+          completed integer default 0,
+          created TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') ),
+          modified TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') ) 
         )
         ",
         [],
     ).expect("Failed to open database");
+
+    conn.execute(
+        "
+        CREATE TRIGGER if not exists update_todos_modified
+        BEFORE UPDATE
+            ON todos
+        BEGIN
+            UPDATE todos
+               SET modified = strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') 
+             WHERE id = old.id;
+        END;
+        ",
+        [],
+    ).expect("Failed to create triggers on database");
 
     conn
 }
@@ -28,7 +45,22 @@ pub fn delete_todo (id: usize) {
             println!("Delete failed: {}", err);
         } ,
     }
+}
 
+// returns updated todo
+pub fn complete_todo (id: usize) -> Result<Todo> {
+    let conn = get_conn();
+    match conn.execute("UPDATE todos SET completed=1 WHERE id=(?1)", &[&id]) {
+        Ok(updated) => {
+            println!("{} rows were updated", updated);
+        }
+        Err(err) => {
+            println!("Update failed: {}", err);
+        } ,
+    }
+
+    let todo = conn.query_row("SELECT * FROM todos WHERE id=(?1)", &[&id], | row | Ok(Todo{id: row.get(0)?, text: row.get(1)?, completed: row.get(2)?}))?;
+    Ok(todo)
 }
 
 // Returns the id of the newly created todo
@@ -45,13 +77,13 @@ pub fn create_todo (text: String) -> usize {
     conn.last_insert_rowid() as usize
 }
 
-pub fn get_todos () -> Result<Vec<Todo>>{ 
+pub fn get_todos (completed: bool) -> Result<Vec<Todo>>{ 
     let conn = get_conn();
     let mut stmt = conn.prepare(
-        "select * from todos;",
+        "SELECT * FROM todos WHERE completed=?1 ORDER BY modified DESC;",
         )?;
 
-    let rows = stmt.query_map([], |row| Ok(Todo { id: row.get(0)?, text: row.get(1)? }))?;
+    let rows = stmt.query_map(&[&completed], |row| Ok(Todo { id: row.get(0)?, text: row.get(1)?, completed: row.get(2)?}))?;
 
     let mut todos = Vec::new();
     for r in rows {
