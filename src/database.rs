@@ -8,9 +8,9 @@ fn get_conn() -> Connection {
 
     conn.execute(
         "create table if not exists todos (
-          id integer primary key,
-          task text not null,
-          completed integer default 0,
+          id INTEGER PRIMARY KEY,
+          task TEXT NOT NULL,
+          completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0,1)),
           created TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') ),
           modified TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') ) 
         )
@@ -47,10 +47,10 @@ pub fn delete_todo (id: usize) {
     }
 }
 
-// returns updated todo
-pub fn complete_todo (id: usize) -> Result<Todo> {
+// returns toggled todo
+pub fn toggle_todo (id: usize) -> Result<Todo> {
     let conn = get_conn();
-    match conn.execute("UPDATE todos SET completed=1 WHERE id=(?1)", &[&id]) {
+    match conn.execute("UPDATE todos SET completed = ((completed | 1) - (completed & 1)) WHERE id=(?1)", &[&id]) {
         Ok(updated) => {
             println!("{} rows were updated", updated);
         }

@@ -18,9 +18,9 @@ async fn main() -> std::io::Result<()> {
             .route("/", get(index)) // Define a GET route for the root path, handled by the
                                      // `index` function
             .route("/todo", get(get_todos).post(create_todo))
-            .route("/completed", get(get_completed))
+            .route("/completed", get(get_completed).post(toggle_todo))
             // :id defines path parameters for our route
-            .route("/todo/:id", delete(delete_todo).post(complete_todo));
+            .route("/todo/:id", delete(delete_todo).post(toggle_todo));
 
     // Bind a TCP listener to the specified address
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
@@ -59,8 +59,8 @@ async fn delete_todo(Path(id): Path<u32>) -> StatusCode {
 }
 
 // complete todos handler
-async fn complete_todo(Path(id): Path<u32>) -> impl IntoResponse {
-    let template = TodosCompleteTemplate { todo: database::complete_todo(id as usize).expect("failed to complete todo item")};
+async fn toggle_todo(Path(id): Path<u32>) -> impl IntoResponse {
+    let template = TodosCompleteTemplate { todo: database::toggle_todo(id as usize).expect("failed to complete todo item")};
     HtmlTemplate(template)
 }
 

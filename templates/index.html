@@ -45,16 +45,21 @@
           this.reset();
         }, 1);"
   >
+    
+    <label> New </label>
     <input type="text" required="true" name="text" placeholder="Todo"/>
   </form>
 
+  <h3>Incomplete items</h2>
   <table class="todo-table">
-    <tbody id="todos" hx-get="/todo" hx-target="#todos" hx-trigger="load" hx-swap="outerHtml swap:0.5s">
+    <tbody id="todos" hx-get="/todo" hx-target="#todos" hx-trigger="load" hx-swap="outerHtml swap:0.0s">
     </tbody>
   </table>
+  <hr></hr>
 
+  <h3>Completed items</h3>
   <table class="completed-table">
-    <tbody id="completed" hx-get="/completed" hx-target="#completed" hx-trigger="load" hx-swap="outerHtml swap:0.5s">
+    <tbody id="completed" hx-get="/completed" hx-target="#completed" hx-trigger="load" hx-swap="outerHtml swap:0.0s">
     </tbody>
   </table>
 
