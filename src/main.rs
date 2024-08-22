@@ -9,7 +9,7 @@ use axum::routing::{delete, get, post};
 use axum::http::StatusCode;
 use tokio::net::TcpListener;
 use todo::{Todo,TodoForm};
-use template::{HtmlTemplate, IndexTemplate, TodosTemplate};
+use template::{HtmlTemplate, IndexTemplate, TodosTemplate, TodosCompleteTemplate};
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -60,7 +60,7 @@ async fn delete_todo(Path(id): Path<u32>) -> StatusCode {
 
 // complete todos handler
 async fn complete_todo(Path(id): Path<u32>) -> impl IntoResponse {
-    let template = TodosTemplate { todos: [database::complete_todo(id as usize).expect("failed to complete todo item")].to_vec() };
+    let template = TodosCompleteTemplate { todo: database::complete_todo(id as usize).expect("failed to complete todo item")};
     HtmlTemplate(template)
 }
 

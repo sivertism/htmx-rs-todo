@@ -1,5 +1,5 @@
-{%for todo in todos %}
-  <tr class={%if todo.completed %} "completed" {% else %} "incomplete" {% endif %} }}>
+<tbody hx-swap-oob="beforebegin:#completed">
+  <tr class="completed">
     <td>
       <input 
         type="checkbox" 
@@ -24,4 +24,4 @@
   </td>
   <td >{{ todo.text }}</td>
 </tr>
-{% endfor %}
+</tbody>

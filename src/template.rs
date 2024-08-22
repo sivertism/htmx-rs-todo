@@ -31,3 +31,10 @@ pub struct TodosTemplate{
     // All fields passed in template can be used by Askama
     pub todos: Vec<Todo>
 }
+
+#[derive(Template)]
+#[template(path = "todos-complete.html")]
+pub struct TodosCompleteTemplate{
+    // All fields passed in template can be used by Askama
+    pub todo: Todo
+}
