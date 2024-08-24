@@ -13,3 +13,4 @@ tokio = { version = "1.37.0", features = ["full"] }
 rusqlite = { version = "0.32.1", features = ["bundled"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4.5.16", features = ["derive"] }

@@ -17,16 +17,35 @@ use std::{net::SocketAddr, path::PathBuf};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use todo::{Todo,TodoForm};
 use template::{HtmlTemplate, IndexTemplate, TodosTemplate, TodosCompleteTemplate};
+use clap::Parser;
 
-#[allow(dead_code)]
-#[derive(Clone, Copy)]
-struct Ports {
-    http: u16,
-    https: u16,
+/// Crappy todo app to test out HTMX with Rust as the backend
+#[derive(Debug, Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+
+    /// Public certificate file path
+    #[arg(long, default_value_t = String::from("self_signed_certs/cert.pem"))]
+    certificate_file_path: String,
+
+    /// Private certificate file key path
+    #[arg(long, default_value_t = String::from("self_signed_certs/key.pem"))]
+    certificate_key_file_path: String,
+
+    /// HTTP port
+    #[arg(long, default_value_t = 7878)]
+    http_port: u16,
+
+    /// HTTPS port
+    #[arg(long, default_value_t = 3000)]
+    https_port: u16,
 }
+
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+
+    let cli = Cli::parse();
     
     tracing_subscriber::registry()
     .with(
@@ -36,20 +55,10 @@ async fn main() -> std::io::Result<()> {
     .with(tracing_subscriber::fmt::layer())
     .init();
 
-    let ports = Ports {
-        http: 7878,
-        https: 3000,
-    };
-
     // configure certificate and private key used by https
-    // #TODO use options to set path to certs
     let config = RustlsConfig::from_pem_file(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("self_signed_certs")
-            .join("cert.pem"),
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("self_signed_certs")
-            .join("key.pem"),
+        PathBuf::from(cli.certificate_file_path),
+        PathBuf::from(cli.certificate_key_file_path),
     )
     .await
     .unwrap();
@@ -63,7 +72,7 @@ async fn main() -> std::io::Result<()> {
             .route("/todo/:id", delete(delete_todo).post(toggle_todo));
 
     // Run https server
-    let addr = SocketAddr::from(([0,0,0,0], ports.https));
+    let addr = SocketAddr::from(([0,0,0,0], cli.https_port));
     tracing::debug!("Listening on {}", addr);
     println!("Listening on {}", addr);
     axum_server::bind_rustls(addr, config)
