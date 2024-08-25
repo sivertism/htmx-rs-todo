@@ -1,20 +1,20 @@
-{%for todo in todos %}
-  <tr class={%if todo.completed %} "completed" {% else %} "incomplete" {% endif %} }}>
+{%for task in tasks %}
+  <tr class={%if task.completed %} "completed" {% else %} "incomplete" {% endif %} }}>
     <td>
       <input 
         type="checkbox" 
         name="select" 
-        hx-post="/todo/{{todo.id}}" 
+        hx-post="/task/{{task.id}}" 
         hx-target="closest tr" 
         hx-swap="outerHtml" 
         class="complete"
       >
-      {{ todo.text }}
+      {{ task.text }}
     </td>
     <td>
       <button 
         class="outline secondary small-button"
-        hx-delete="/todo/{{todo.id}}" 
+        hx-delete="/task/{{task.id}}" 
         hx-target="closest tr" 
         hx-swap="outerHtml" 
       >

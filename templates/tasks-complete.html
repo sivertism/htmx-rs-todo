@@ -1,31 +1,31 @@
 <tbody 
-  {%if todo.completed %}
+  {%if task.completed %}
   hx-swap-oob="beforebegin:#completed"
   {% else %}
-  hx-swap-oob="beforeend:#todos"
+  hx-swap-oob="beforeend:#tasks"
   {% endif %}
   >
   <tr 
-  {%if todo.completed %}
+  {%if task.completed %}
     class="completed"
   {% else %}
-    class="todo"
+    class="task"
   {% endif %}
     >
     <td>
       <input 
         type="checkbox" 
         name="select" 
-        hx-post="/todo/{{todo.id}}" 
+        hx-post="/task/{{task.id}}" 
         hx-target="closest tr" 
         hx-swap="outerHtml" 
       >
-      {{ todo.text }}
+      {{ task.text }}
     </td>
     <td>
       <button 
         class="outline secondary small-button"
-        hx-delete="/todo/{{todo.id}}" 
+        hx-delete="/task/{{task.id}}" 
         hx-target="closest tr" 
         hx-swap="outerHtml" 
       >

@@ -23,18 +23,18 @@ where T: Template,
   }
 }
 
-use crate::todo::Todo;
+use crate::todo::Task;
 
 #[derive(Template)]
-#[template(path = "todos.html")]
-pub struct TodosTemplate{
+#[template(path = "tasks.html")]
+pub struct TasksTemplate{
     // All fields passed in template can be used by Askama
-    pub todos: Vec<Todo>
+    pub tasks: Vec<Task>
 }
 
 #[derive(Template)]
-#[template(path = "todos-complete.html")]
-pub struct TodosCompleteTemplate{
+#[template(path = "tasks-complete.html")]
+pub struct TasksCompleteTemplate{
     // All fields passed in template can be used by Askama
-    pub todo: Todo
+    pub task: Task
 }

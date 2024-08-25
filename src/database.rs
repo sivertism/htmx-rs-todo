@@ -1,43 +1,27 @@
 //use rusqlite::NO_PARAMS;
 use rusqlite::{Connection, Result};
-use crate::todo::Todo;
+use crate::todo::Task;
 
-fn get_conn() -> Connection {
-    // Create, or connect to a local SQLite database to store the todos
+struct Database {
+    connection : Connection,
+}
+
+
+// Impl new (set up connection, run sql init code)
+
+pub fn init_db() -> Connection {
+    // Create, or connect to a local SQLite database to store the tasks
     let conn = Connection::open("todos.db").expect("Failed to open database");
 
-    conn.execute(
-        "create table if not exists todos (
-          id INTEGER PRIMARY KEY,
-          task TEXT NOT NULL,
-          completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0,1)),
-          created TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') ),
-          modified TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') ) 
-        )
-        ",
-        [],
-    ).expect("Failed to open database");
-
-    conn.execute(
-        "
-        CREATE TRIGGER if not exists update_todos_modified
-        BEFORE UPDATE
-            ON todos
-        BEGIN
-            UPDATE todos
-               SET modified = strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') 
-             WHERE id = old.id;
-        END;
-        ",
-        [],
-    ).expect("Failed to create triggers on database");
+    let sql_schema = include_str!("../sql/schema.sql");
+    conn.execute_batch(sql_schema).expect("Failed to execute schema");
 
     conn
 }
 
-pub fn delete_todo (id: usize) {
-    let conn = get_conn();
-    match conn.execute("DELETE FROM todos WHERE id=(?1)", &[&id]) {
+pub fn delete_task (id: usize) {
+    let conn = Connection::open("todos.db").expect("Failed to open database");
+    match conn.execute("DELETE FROM tasks WHERE id=(?1)", &[&id]) {
         Ok(updated) => {
             println!("{} rows were deleted", updated);
         }
@@ -47,10 +31,10 @@ pub fn delete_todo (id: usize) {
     }
 }
 
-// returns toggled todo
-pub fn toggle_todo (id: usize) -> Result<Todo> {
-    let conn = get_conn();
-    match conn.execute("UPDATE todos SET completed = ((completed | 1) - (completed & 1)) WHERE id=(?1)", &[&id]) {
+// returns toggled task
+pub fn toggle_task (id: usize) -> Result<Task> {
+    let conn = Connection::open("todos.db").expect("Failed to open database");
+    match conn.execute("UPDATE tasks SET completed = ((completed | 1) - (completed & 1)) WHERE id=(?1)", &[&id]) {
         Ok(updated) => {
             println!("{} rows were updated", updated);
         }
@@ -59,14 +43,14 @@ pub fn toggle_todo (id: usize) -> Result<Todo> {
         } ,
     }
 
-    let todo = conn.query_row("SELECT * FROM todos WHERE id=(?1)", &[&id], | row | Ok(Todo{id: row.get(0)?, text: row.get(1)?, completed: row.get(2)?}))?;
-    Ok(todo)
+    let task = conn.query_row("SELECT * FROM tasks WHERE id=(?1)", &[&id], | row | Ok(Task{id: row.get(0)?, text: row.get(1)?, completed: row.get(2)?}))?;
+    Ok(task)
 }
 
-// Returns the id of the newly created todo
-pub fn create_todo (text: String) -> usize {
-    let conn = get_conn();
-    match conn.execute("INSERT INTO todos (task) values (?1)", &[&text]) {
+// Returns the id of the newly created task
+pub fn create_task (text: String) -> usize {
+    let conn = Connection::open("todos.db").expect("Failed to open database");
+    match conn.execute("INSERT INTO tasks (task) values (?1)", &[&text]) {
         Ok(updated) => {
             println!("{} rows were inserted", updated);
         }
@@ -77,17 +61,17 @@ pub fn create_todo (text: String) -> usize {
     conn.last_insert_rowid() as usize
 }
 
-pub fn get_todos (completed: bool) -> Result<Vec<Todo>>{ 
-    let conn = get_conn();
+pub fn get_tasks (completed: bool) -> Result<Vec<Task>>{ 
+    let conn = Connection::open("todos.db").expect("Failed to open database");
     let mut stmt = conn.prepare(
-        "SELECT * FROM todos WHERE completed=?1 ORDER BY modified DESC;",
+        "SELECT * FROM tasks WHERE completed=?1 ORDER BY modified DESC;",
         )?;
 
-    let rows = stmt.query_map(&[&completed], |row| Ok(Todo { id: row.get(0)?, text: row.get(1)?, completed: row.get(2)?}))?;
+    let rows = stmt.query_map(&[&completed], |row| Ok(Task { id: row.get(0)?, text: row.get(1)?, completed: row.get(2)?}))?;
 
-    let mut todos = Vec::new();
+    let mut tasks = Vec::new();
     for r in rows {
-        todos.push(r?);
+        tasks.push(r?);
     }
-    Ok(todos)
+    Ok(tasks)
 }

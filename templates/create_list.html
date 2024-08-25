@@ -1,0 +1,13 @@
+<main class="container" id="mainbody">
+
+<form id="create-list-form" hx-post="/create_list"
+      onsubmit="setTimeout(() => {
+        this.reset();
+      }, 1);"
+>
+<input type="text" required="true" name="text" placeholder="Add new todo list"/>
+</form>
+
+
+<h3>TODO list of lists</h3>
+</main>

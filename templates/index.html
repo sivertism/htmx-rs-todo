@@ -25,8 +25,13 @@
   }
 
   th, td:first-child, th:first-child {
-      width: 80%; /* Allows the first two columns to size based on their content */
+      max-width: 99%; /* Allows the first two columns to size based on their content */
       white-space: normal; /* Prevents wrapping of text in the first two columns */
+  }
+
+  th, td:nth-child(2), th:nth-child(2) {
+      width: 50px; /* Allows the first two columns to size based on their content */
+      white-space: nowrap; /* Prevents wrapping of text in the first two columns */
   }
 
   .small-button {
@@ -43,23 +48,53 @@
 </style>
 
 <body>
-  <main class="container">
+  <header class="container">
+    <nav>
+    <ul>
+      <li>HTMX + Rust + SQLite = crappy todo app</li>
+    </ul>
+    <ul>
+      <li><a href="/about">About</a></li>
+      <li><button class="outline" hx-get="/create_list" hx-target="#mainbody">Create</a></li>
+      <li><a href="#">Open</a></li>
+    </ul>
+    <nav>
+  </header>
 
-  <h1> HTMX + Rust + SQLite = crappy todo app</h1>
+  <main class="container" id="mainbody">
+
+    <aside>
+      <nav>
+      <ul>:
+        <li>Lists</li>
+      </ul>
+      <ul id="lists">
+        <li><a href="#">Handleliste</a></li>
+        <li><a href="#">Barnehage</a></li>
+        <li><a href="#">Diverse</a></li>
+      </ul>
+      <nav>
+    </aside>
+
   
-  <form id="todo-form" hx-post="/todo" hx-target="#todos" hx-swap="beforeend" 
+  <form id="list-form" hx-post="/list" hx-swap="innerHtml"
         onsubmit="setTimeout(() => {
           this.reset();
         }, 1);"
   >
-    
-    <label> New </label>
-    <input type="text" required="true" name="text" placeholder="Todo"/>
+  </form>
+
+  <form id="task-form" hx-post="/task" hx-target="#tasks" hx-swap="beforeend" 
+        onsubmit="setTimeout(() => {
+          this.reset();
+        }, 1);"
+  >
+    <input type="text" required="true" name="text" placeholder="Add new task"/>
   </form>
 
   <h3>Incomplete items</h2>
-  <table class="todo-table">
-    <tbody id="todos" hx-get="/todo" hx-target="#todos" hx-trigger="load" hx-swap="outerHtml swap:0.0s">
+  <table class="task-table">
+    <tbody id="tasks" hx-get="/task" hx-target="#tasks" hx-trigger="load" hx-swap="outerHtml swap:0.0s">
     </tbody>
   </table>
   <hr></hr>
