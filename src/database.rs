@@ -40,7 +40,7 @@ pub fn toggle_task (id: usize) -> Result<Task> {
         }
         Err(err) => {
             println!("Update failed: {}", err);
-        } ,
+        }
     }
 
     let task = conn.query_row("SELECT * FROM tasks WHERE id=(?1)", &[&id], | row | Ok(Task{id: row.get(0)?, text: row.get(1)?, completed: row.get(2)?}))?;

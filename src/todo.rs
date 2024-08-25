@@ -5,6 +5,13 @@ pub struct Task {
     pub id: usize,
     pub text: String,
     pub completed: bool,
+    pub list_id: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct List {
+    pub id: usize,
+    pub name: String,
 }
 
 // Don't worry about this for now, will use later
@@ -15,5 +22,5 @@ pub struct TaskForm {
 
 #[derive(Deserialize)]
 pub struct ListForm {
-    pub text: String,
+    pub name: String,
 }

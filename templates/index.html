@@ -55,7 +55,7 @@
     </ul>
     <ul>
       <li><a href="/about">About</a></li>
-      <li><button class="outline" hx-get="/create_list" hx-target="#mainbody">Create</a></li>
+      <li><button class="outline" hx-get="/create_list" hx-target="#mainbody">Create</button></li>
       <li><a href="#">Open</a></li>
     </ul>
     <nav>
@@ -63,20 +63,6 @@
 
   <main class="container" id="mainbody">
 
-    <aside>
-      <nav>
-      <ul>:
-        <li>Lists</li>
-      </ul>
-      <ul id="lists">
-        <li><a href="#">Handleliste</a></li>
-        <li><a href="#">Barnehage</a></li>
-        <li><a href="#">Diverse</a></li>
-      </ul>
-      <nav>
-    </aside>
-
-  
   <form id="list-form" hx-post="/list" hx-swap="innerHtml"
         onsubmit="setTimeout(() => {
           this.reset();
@@ -84,26 +70,15 @@
   >
   </form>
 
-  <form id="task-form" hx-post="/task" hx-target="#tasks" hx-swap="beforeend" 
-        onsubmit="setTimeout(() => {
-          this.reset();
-        }, 1);"
-  >
-    <input type="text" required="true" name="text" placeholder="Add new task"/>
+  <form>
+  <div id="list_options" hx-get="/lists" hx-target="#select-list" hx-trigger="load" hx-swap="innerHtml">
+    <label>List</label>
+    <select name="list_id" id="select-list" hx-get="/list_tables" hx-target="#task_lists" hx-trigger="load delay:0.5s, change">
+    </select>
+  </div>
   </form>
 
-  <h3>Incomplete items</h2>
-  <table class="task-table">
-    <tbody id="tasks" hx-get="/task" hx-target="#tasks" hx-trigger="load" hx-swap="outerHtml swap:0.0s">
-    </tbody>
-  </table>
-  <hr></hr>
-
-  <h3>Completed items</h3>
-  <table class="completed-table">
-    <tbody id="completed" hx-get="/completed" hx-target="#completed" hx-trigger="load" hx-swap="outerHtml swap:0.0s">
-    </tbody>
-  </table>
+  <div id="task_lists"></div>
 
   </main>
 </body>

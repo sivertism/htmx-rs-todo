@@ -1,0 +1,20 @@
+<form id="task-form" hx-post="/{{list.id}}/task" hx-target="#tasks" hx-swap="beforeend" 
+      onsubmit="setTimeout(() => {
+        this.reset();
+      }, 1);"
+>
+  <input type="text" required="true" name="text" placeholder="Add new task"/>
+</form>
+
+<h3>Incomplete items</h3>
+<table class="task-table">
+  <tbody id="tasks" hx-get="/{{list.id}}/task" hx-target="#tasks" hx-trigger="load" hx-swap="outerHtml swap:0.0s">
+  </tbody>
+</table>
+<hr></hr>
+
+<h3>Completed items</h3>
+<table class="completed-table">
+  <tbody id="completed" hx-get="/{{list.id}}/completed" hx-target="#completed" hx-trigger="load" hx-swap="outerHtml swap:0.0s">
+  </tbody>
+</table>

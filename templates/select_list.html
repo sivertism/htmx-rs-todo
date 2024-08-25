@@ -1,0 +1,7 @@
+{%for list in lists %}
+<option class="select-list" value={{list.id}}
+  {% if loop.index == 0 %} selected="selected" {% endif %}
+>
+{{list.name}}
+</option>
+{% endfor %}
