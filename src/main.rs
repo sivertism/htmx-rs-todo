@@ -162,28 +162,50 @@ async fn get_tasks(State(state): State<AppState>, Path(list_id): Path<u32>) -> i
     // 1. Get Grocy credentials for the list if they exist
     if let Some(gc) = get_grocy_credentials(list_id as usize, &state.dbconn).await {
         println!("Got credentials for {}", gc.url);
+
         // 2. Get Grocy shopping list items
-        if let Ok(items) = grocy::get_shopping_list_items(&gc).await {
-            println!("Got {} items from Grocy", items.len());
-            insert_grocy_shopping_list_items(list_id as usize, items, &state.dbconn).await;
+        match grocy::get_shopping_list_items(&gc).await {
+            Ok(items) => {
+                println!("Got {} items from Grocy", items.len());
 
-            // 3. Check many-to-many table to see if there are new items
-            // 4. Insert new items into list
-        } else {
-            println!("Failed to get shopping list items.");
-        }
+                // Insert into database
+                //insert_grocy_shopping_list_items(list_id as usize, items, &state.dbconn).await;
+
+                for item in items.into_iter() {
+                    println!("Getting product name of {:?}", item);
+                    let name = get_product_name(item.product_id, &gc).await.expect("Failed to get product name");
+                    let quantity_unit = get_quantity_unit(item.quantity_unit_id, &gc).await.expect("Failed to get quantity unit");
+                    let task = format!("{} {} {}", name, item.amount, quantity_unit);
+                    println!("Got task {}", task);
+                    let id = state
+                        .dbconn
+                        .call(move |conn| {
+                            match conn.execute(
+                                "INSERT INTO tasks (task, list_id) values (?1, ?2)",
+                                rusqlite::params![&task, &list_id],
+                            ) {
+                                Ok(updated) => {
+                                    println!("{} rows were inserted", updated);
+                                }
+                                Err(err) => {
+                                    panic!("Create task failed: {}", err);
+                                }
+                            }
+                            Ok(conn.last_insert_rowid() as usize)
+                        })
+                        .await
+                        .expect("Failed to create task on db.");
+
+                    // Delete from Grocy
+                    delete_shopping_list_item(item.id, &gc).await.expect("Failed to delete");
+                }
+                //println!("Task item with id {} created", id);
+
+                // Delete from Grocy
+        },
+            Err(err) => {println!("Failed to get shopping list items. {}", err);}
     }
-
-    // TODO: Should move this to it's own function
-    //  Cache these?
-
-    // Get shopping list items from Grocy
-    //let shopping_list_items = state
-    //  .grocy_client
-    //  .call(move |conn| {
-    //    conn.get()
-    //    Ok(items)
-    //  });
+    }
 
     let tasks = state
         .dbconn

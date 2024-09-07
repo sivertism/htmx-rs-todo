@@ -1,5 +1,5 @@
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, de::DeserializeOwned};
 
 pub struct GrocyCredentials {
     pub api_key: String,
@@ -10,6 +10,7 @@ struct Endpoints;
 impl Endpoints {
     const SHOPPING_LIST_ITEMS: &'static str = "api/objects/shopping_list";
     const PRODUCTS: &'static str = "api/objects/products";
+    const QUANTITY_UNITS: &'static str = "api/objects/quantity_units";
 }
 
 
@@ -19,10 +20,25 @@ pub struct ShoppingListItem {
     pub product_id: usize,
     pub shopping_list_id: usize,
     pub note: String,
-    pub amount: usize,
+    pub amount: f64,
     pub done: usize,
     #[serde(rename = "qu_id")]
     pub quantity_unit_id: usize,
+    row_created_timestamp: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct QuantityUnit {
+    pub id: usize,
+    pub name: String,
+    pub description: String,
+    pub name_plural: String,
+    pub plural_forms: Option<usize>,
+
+    #[serde(skip_deserializing)]
+    pub active: usize,
+
+    #[serde(skip_deserializing)]
     row_created_timestamp: String,
 }
 
@@ -53,7 +69,7 @@ pub struct Product {
     pub qu_id_stock: usize,
 
     #[serde(skip_deserializing)]
-    pub min_stock_amount: usize,
+    pub min_stock_amount: f64,
 
     #[serde(skip_deserializing)]
     pub default_best_before_days: usize,
@@ -92,7 +108,7 @@ pub struct Product {
     pub due_type: usize,
 
     #[serde(skip_deserializing)]
-    pub quick_consume_amount: usize,
+    pub quick_consume_amount: f64,
 
     #[serde(skip_deserializing)]
     pub hide_on_stock_overview: usize,
@@ -125,7 +141,7 @@ pub struct Product {
     pub auto_reprint_stock_label: usize,
 
     #[serde(skip_deserializing)]
-    pub quick_open_amount: usize,
+    pub quick_open_amount: f64,
 
     #[serde(skip_deserializing)]
     pub qu_id_price: usize,
@@ -145,13 +161,57 @@ pub async fn connect(api_key: String) -> Result<reqwest::Client, reqwest::Error>
 pub async fn get_shopping_list_items(
     cred: &GrocyCredentials,
 ) -> Result<Vec<ShoppingListItem>, reqwest::Error> {
+    let res: Vec<ShoppingListItem> = fetch_all(cred, Endpoints::SHOPPING_LIST_ITEMS).await?;
+    Ok(res)
+}
+
+pub async fn get_product_name (
+    id: usize, 
+    cred: &GrocyCredentials,
+) -> Result<String, reqwest::Error> {
+    let res : Product = fetch_single(cred, Endpoints::PRODUCTS, id).await?; 
+    Ok(res.name)
+}
+
+pub async fn delete_shopping_list_item (
+    id: usize, 
+    cred: &GrocyCredentials,
+) -> Result<(), reqwest::Error> {
+    println!("Deleting item {} from Grocy", id);
+    delete_single(cred, Endpoints::SHOPPING_LIST_ITEMS, id).await?; 
+    Ok(())
+}
+
+pub async fn get_quantity_unit (
+    id: usize, 
+    cred: &GrocyCredentials,
+) -> Result<String, reqwest::Error> {
+    let res : Product = fetch_single(cred, Endpoints::QUANTITY_UNITS, id).await?; 
+    Ok(res.name)
+}
+
+async fn fetch_single<T>(cred: &GrocyCredentials, endpoint: &str, id :usize) -> Result<T, reqwest::Error> 
+where T: DeserializeOwned
+{
     let client = reqwest::Client::new();
     let url = reqwest::Url::parse(&cred.url)
         .expect("Failed  to parse URL")
-        .join(Endpoints::SHOPPING_LIST_ITEMS)
+        .join(endpoint)
         .expect("Failed to join endpoint");
-    let res: Vec<ShoppingListItem> = client
-        .get(url)
+    println!("Fetch {:?}", url);
+    let url = format!("{}/{}/{}", &cred.url, endpoint, id);
+
+    println!("Endpoint: {}", endpoint);
+    //let url = reqwest::Url::parse(&cred.url)
+    //    .expect("Failed  to parse URL")
+    //    .join(endpoint)
+    //    .expect("Failed to join endpoint")
+    //    .join(&id.to_string())
+    //    .expect("Failed to join product id");
+    
+    println!("Fetch {:?}", url);
+    let res: T = client
+        .get(reqwest::Url::parse(&url).expect(""))
         .header("GROCY-API-KEY", cred.api_key.clone())
         .send()
         .await?
@@ -160,23 +220,34 @@ pub async fn get_shopping_list_items(
     Ok(res)
 }
 
-pub async fn get_product_name (
-    id: usize, 
-    cred: &GrocyCredentials,
-) -> Result<String, reqwest::Error> {
+async fn delete_single(cred: &GrocyCredentials, endpoint: &str, id :usize) -> Result<(), reqwest::Error> 
+{
+    let client = reqwest::Client::new();
+    let url = format!("{}/{}/{}", &cred.url, endpoint, id);
+    println!("DELETE {:?}", url);
+    let res = client
+        .delete(reqwest::Url::parse(&url).expect(""))
+        .header("GROCY-API-KEY", cred.api_key.clone())
+        .send()
+        .await?;
+    Ok(())
+}
+
+pub async fn fetch_all<T>(cred: &GrocyCredentials, endpoint: &str) -> Result<Vec<T>, reqwest::Error> 
+where T: DeserializeOwned
+{
     let client = reqwest::Client::new();
     let url = reqwest::Url::parse(&cred.url)
         .expect("Failed  to parse URL")
-        .join(Endpoints::PRODUCTS)
-        .expect("Failed to join endpoint")
-        .join(&id.to_string())
-        .expect("Failed to join product id");
-    let res : Product = client
+        .join(endpoint)
+        .expect("Failed to join endpoint");
+    println!("Fetch {:?}", url);
+    let res: Vec<T> = client
         .get(url)
         .header("GROCY-API-KEY", cred.api_key.clone())
         .send()
         .await?
         .json()
         .await?;
-    Ok(res.name.clone())
+    Ok(res)
 }
