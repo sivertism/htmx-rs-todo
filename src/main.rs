@@ -74,7 +74,7 @@ async fn main() -> std::io::Result<()> {
         .with_state(state);
 
     // Bind a TCP listener to the specified address
-    let listener = TcpListener::bind("0.0.0.0:3000").await?;
+    let listener = TcpListener::bind("127.0.0.1:3000").await?;
     println!("listening on {}", listener.local_addr().unwrap());
 
     // Start the Axum server with the defined routes
