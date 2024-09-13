@@ -71,9 +71,14 @@
   </form>
 
   <form>
-  <div id="list_options" hx-get="/lists" hx-target="#select-list" hx-trigger="load" hx-swap="innerHtml">
+    <div id="list_options" hx-get="/lists?list_id={{selected_list}}" hx-target="#select-list" hx-trigger="load" hx-swap="innerHtml">
     <label>List</label>
-    <select name="list_id" id="select-list" hx-get="/list_tables" hx-target="#task_lists" hx-trigger="load delay:0.5s, change">
+    <select name="list_id" 
+      id="select-list" 
+      hx-get="/list_tables" 
+      hx-target="#task_lists" 
+      hx-trigger="load delay:0.5s, change"
+      >
     </select>
   </div>
   </form>

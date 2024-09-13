@@ -5,7 +5,9 @@ use axum::response::{Html, IntoResponse, Response};
 
 #[derive(Template)]
 #[template(path = "index.html")] // Specify the path to the index.html template file
-pub struct IndexTemplate {}
+pub struct IndexTemplate {
+    pub selected_list: usize,
+}
 
 // A wrapper for turning askama templates into responses that can be handled by server
 pub struct HtmlTemplate<T>(pub T);
@@ -52,6 +54,7 @@ pub struct ListsTemplate {
 pub struct ListOptionsTemplate {
     // All fields passed in template can be used by Askama
     pub lists: Vec<List>,
+    pub selected_list: usize,
 }
 
 #[derive(Template)]

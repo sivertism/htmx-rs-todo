@@ -11,15 +11,17 @@ use axum::{
     Form,
 };
 use grocy::*;
-use reqwest;
 use rusqlite;
 use serde::Deserialize;
+use anyhow::Context;
 use template::*;
 use todo::{List, ListForm, Task, TaskForm};
 use tokio::net::TcpListener;
 #[allow(unused_imports)]
-use tokio_rusqlite::{params, Connection, Result};
+use tokio_rusqlite::{params, Connection};
 use tower_http::services::ServeFile;
+use tracing_subscriber;
+use tracing::{info, warn, debug};
 
 #[derive(Debug, Clone)]
 struct AppState {
@@ -28,31 +30,31 @@ struct AppState {
 
 #[derive(Deserialize)]
 struct ListQuery {
-    list_id: usize,
+    list_id: Option<usize>,
 }
 
 #[tokio::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
     // Create, or connect to a local SQLite database to store the tasks
     let dbconn = Connection::open("todos.db")
         .await
-        .expect("Failed to open database");
+        .context("Open database")?;
 
     // Insert basic tracing function to print sql queries to console
     dbconn
         .call(|conn| {
             conn.trace(Some(|statement| {
-                println!("{}", statement);
-            }));
-            Ok(())
+                debug!("{}", statement); })); 
+                Ok(()) 
         })
         .await
-        .expect("Failed to add tracing function");
+        .context("Add tracing function")?;
 
     // Initialize db
     initialize_database(&dbconn)
         .await
-        .expect("Failed to initialize database");
+        .context("Initialize database")?;
 
     let state = AppState {
         dbconn,
@@ -75,7 +77,7 @@ async fn main() -> std::io::Result<()> {
 
     // Bind a TCP listener to the specified address
     let listener = TcpListener::bind("127.0.0.1:3000").await?;
-    println!("listening on {}", listener.local_addr().unwrap());
+    info!("listening on {}", listener.local_addr().unwrap());
 
     // Start the Axum server with the defined routes
     axum::serve(listener, app).await?;
@@ -83,7 +85,7 @@ async fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-async fn initialize_database(dbconn: &Connection) -> Result<()> {
+async fn initialize_database(dbconn: &Connection) -> anyhow::Result<()> {
     dbconn
         .call(|conn| {
             let sql_schema = include_str!("../sql/schema.sql");
@@ -95,8 +97,13 @@ async fn initialize_database(dbconn: &Connection) -> Result<()> {
     Ok(())
 }
 
-async fn index() -> impl IntoResponse {
-    HtmlTemplate(IndexTemplate {})
+async fn index(list_query: Query<ListQuery>) -> impl IntoResponse {
+    let selected_list = match list_query.list_id {
+        Some(id) => id,
+        None => 3,
+    };
+
+    HtmlTemplate(IndexTemplate {selected_list})
 }
 
 async fn get_grocy_credentials(
@@ -124,71 +131,31 @@ async fn get_grocy_credentials(
     return None;
 }
 
-async fn insert_grocy_shopping_list_items(
-    list_id: usize,
-    grocy_shopping_list_items: Vec<ShoppingListItem>,
-    dbconn: &tokio_rusqlite::Connection,
-) {
-    // Create tasks from items
-    // filter out tasks that are already in the grocy-to-task map
-    // Insert if not
-    // Get list of items that are not already inserted
-    let mut new_items = vec![];
-    for item in grocy_shopping_list_items.into_iter() {
-        let exists: bool = dbconn.call(move | conn | {
-                let mut stmt = conn.prepare("SELECT grocy_id FROM grocy_tasks_mapping WHERE grocy_id=(?1) AND list_id=(?2)")?;
-                Ok(stmt.exists(rusqlite::params![&item.id, &list_id])?)
-            })
-            .await
-            .expect("Failed to get new ids");
-
-        if !exists {
-            new_items.push(item);
-        }
-
-    }
-
-    println!("Got {} new items from Grocy", new_items.len());
-
-    // NOTE: Should be done in a transaction, so prepare new Task
-    // then run single execute to insert into both tables.
-    // Insert new items into task mapping
-    
-    // Insert new items into tasks
-}
-
-// get tasks handler
 async fn get_tasks(State(state): State<AppState>, Path(list_id): Path<u32>) -> impl IntoResponse {
     // 1. Get Grocy credentials for the list if they exist
     if let Some(gc) = get_grocy_credentials(list_id as usize, &state.dbconn).await {
-        println!("Got credentials for {}", gc.url);
+        info!("Got credentials for {}", gc.url);
 
         // 2. Get Grocy shopping list items
         match grocy::get_shopping_list_items(&gc).await {
             Ok(items) => {
-                println!("Got {} items from Grocy", items.len());
-
-                // Insert into database
-                //insert_grocy_shopping_list_items(list_id as usize, items, &state.dbconn).await;
+                info!("Got {} items from Grocy", items.len());
 
                 for item in items.into_iter() {
-                    println!("Getting product name of {:?}", item);
                     let name = get_product_name(item.product_id, &gc).await.expect("Failed to get product name");
                     let quantity_unit = get_quantity_unit(item.quantity_unit_id, &gc).await.expect("Failed to get quantity unit");
                     let task = format!("{} {} {}", name, item.amount, quantity_unit);
-                    println!("Got task {}", task);
-                    let id = state
+                    info!("Consuming task '{}' from Grocy", &task);
+                    let _id = state
                         .dbconn
                         .call(move |conn| {
                             match conn.execute(
                                 "INSERT INTO tasks (task, list_id) values (?1, ?2)",
                                 rusqlite::params![&task, &list_id],
                             ) {
-                                Ok(updated) => {
-                                    println!("{} rows were inserted", updated);
-                                }
+                                Ok(_n_updated) => {}
                                 Err(err) => {
-                                    panic!("Create task failed: {}", err);
+                                    warn!("Create task from grocy failed: {}", err);
                                 }
                             }
                             Ok(conn.last_insert_rowid() as usize)
@@ -199,12 +166,9 @@ async fn get_tasks(State(state): State<AppState>, Path(list_id): Path<u32>) -> i
                     // Delete from Grocy
                     delete_shopping_list_item(item.id, &gc).await.expect("Failed to delete");
                 }
-                //println!("Task item with id {} created", id);
-
-                // Delete from Grocy
         },
-            Err(err) => {println!("Failed to get shopping list items. {}", err);}
-    }
+            Err(err) => {warn!("Failed to get shopping list items: {}", err);}
+        }
     }
 
     let tasks = state
@@ -234,12 +198,16 @@ async fn get_tasks(State(state): State<AppState>, Path(list_id): Path<u32>) -> i
         .await
         .expect("Failed to get tasks");
 
-    println!("Got tasks: {:?} from list with id {:?}", tasks, list_id);
+    info!("Got tasks: {:?} from list with id {:?}", tasks, list_id);
     let template = TasksTemplate { tasks };
     HtmlTemplate(template)
 }
 
-async fn get_list_options(State(state): State<AppState>) -> impl IntoResponse {
+async fn get_list_options(State(state): State<AppState>, list_query: Query<ListQuery>) -> impl IntoResponse {
+    let selected_list = match list_query.list_id {
+        Some(id) => id,
+        None => 1,
+    };
     let lists = state
         .dbconn
         .call(move |conn| {
@@ -259,8 +227,8 @@ async fn get_list_options(State(state): State<AppState>) -> impl IntoResponse {
         .await
         .expect("Failed to get lists");
 
-    println!("Got lists: {:?}", lists);
-    let template = ListOptionsTemplate { lists };
+    info!("Got lists: {:?}", lists);
+    let template = ListOptionsTemplate { lists, selected_list};
     HtmlTemplate(template)
 }
 
@@ -295,7 +263,7 @@ async fn get_completed(
         .await
         .expect("Failed to get tasks");
 
-    println!(
+    info!(
         "Got completed tasks: {:?} from list with id {:?}",
         tasks, list_id
     );
@@ -309,8 +277,7 @@ async fn delete_task(State(state): State<AppState>, Path(id): Path<u32>) -> Stat
         .dbconn
         .call(
             move |conn| match conn.execute("DELETE FROM tasks WHERE id=(?1)", &[&id]) {
-                Ok(updated) => {
-                    println!("{} rows were deleted", updated);
+                Ok(_n_updated) => {
                     Ok(())
                 }
                 Err(err) => {
@@ -321,6 +288,7 @@ async fn delete_task(State(state): State<AppState>, Path(id): Path<u32>) -> Stat
         )
         .await
         .expect("Failed to delete task");
+    info!("Deleted task with id {}",  id);
     StatusCode::OK
 }
 
@@ -328,8 +296,8 @@ async fn delete_task(State(state): State<AppState>, Path(id): Path<u32>) -> Stat
 async fn toggle_task(
     State(state): State<AppState>,
     Path(id): Path<u32>,
-    Path(list_id): Path<u32>,
 ) -> impl IntoResponse {
+    info!("Toggling task with id {}", id);
     let task = state
         .dbconn
         .call(move |conn| {
@@ -340,7 +308,7 @@ async fn toggle_task(
                 &[&id],
             ) {
                 Ok(updated) => {
-                    println!("{} rows were updated", updated);
+                    info!("{} rows were updated", updated);
                 }
                 Err(err) => {
                     panic!("Failed to update row with {}", err);
@@ -372,12 +340,16 @@ async fn get_list_tables(
     State(state): State<AppState>,
     list_query: Query<ListQuery>,
 ) -> impl IntoResponse {
+    let selected_list = match list_query.list_id {
+        Some(id) => id,
+        None => 1,
+    };
     let list = state
         .dbconn
         .call(move |conn| {
             Ok(conn.query_row(
                 "SELECT * FROM lists WHERE id=(?1)",
-                &[&list_query.list_id],
+                &[&selected_list],
                 |row| {
                     Ok(List {
                         id: row.get(0)?,
@@ -398,7 +370,7 @@ async fn create_task(
     form: Form<TaskForm>,
 ) -> impl IntoResponse {
     let text = form.text.clone();
-    println!("Inserting task item with list_id {}", list_id);
+    info!("Inserting task item with list_id {}", list_id);
 
     let id = state
         .dbconn
@@ -408,7 +380,7 @@ async fn create_task(
                 rusqlite::params![&text, &list_id],
             ) {
                 Ok(updated) => {
-                    println!("{} rows were inserted", updated);
+                    info!("{} rows were inserted", updated);
                 }
                 Err(err) => {
                     panic!("Create task failed: {}", err);
@@ -418,7 +390,7 @@ async fn create_task(
         })
         .await
         .expect("Failed to create task on db.");
-    println!("Task item with id {} created", id);
+    info!("Task item with id {} created", id);
 
     let tasks = vec![Task {
         id: id,
@@ -439,11 +411,9 @@ async fn create_list(State(state): State<AppState>, form: Form<ListForm>) -> Sta
         .call(move |conn| {
             // Create the list
             match conn.execute("INSERT INTO lists (name) values (?1)", &[&name]) {
-                Ok(updated) => {
-                    println!("{} rows were inserted", updated);
-                }
+                Ok(_n_updated) => {}
                 Err(err) => {
-                    panic!("Create list failed: {}", err);
+                    warn!("Create list failed: {}", err);
                 }
             }
             Ok(conn.last_insert_rowid() as usize)
