@@ -22,6 +22,17 @@ use tokio_rusqlite::{params, Connection};
 use tower_http::services::ServeFile;
 use tracing_subscriber;
 use tracing::{info, warn, debug};
+use clap::Parser;
+
+/// Crappy todo app to test out HTMX with Rust as the backend
+#[derive(Debug, Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    /// Data storage directory
+    #[arg(long)]
+    data_dir: std::path::PathBuf,
+}
+
 
 #[derive(Debug, Clone)]
 struct AppState {
@@ -35,9 +46,12 @@ struct ListQuery {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+
+    let cli = Cli::parse();
+
     tracing_subscriber::fmt::init();
     // Create, or connect to a local SQLite database to store the tasks
-    let dbconn = Connection::open("todos.db")
+    let dbconn = Connection::open(cli.data_dir.join("todos.db"))
         .await
         .context("Open database")?;
 
