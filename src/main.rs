@@ -1,6 +1,7 @@
 mod grocy;
 mod template;
 mod todo;
+mod database;
 
 #[allow(unused_imports)]
 use axum::{
@@ -11,6 +12,7 @@ use axum::{
     Form,
 };
 use grocy::*;
+use database::Database;
 use rusqlite;
 use serde::Deserialize;
 use anyhow::Context;
@@ -42,9 +44,10 @@ struct Cli {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct AppState {
     dbconn: Connection,
+    db: Database,
 }
 
 #[derive(Deserialize)]
@@ -78,8 +81,11 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("Initialize database")?;
 
+    let db = Database::new(cli.data_dir.join("todos.db")).await.context("Create db")?;
+
     let state = AppState {
         dbconn,
+        db
     };
 
     let app = axum::Router::new() // Create a new Axum Router
@@ -169,6 +175,7 @@ async fn get_tasks(State(state): State<AppState>, Path(list_id): Path<u32>) -> i
                     let quantity_unit = get_quantity_unit(item.quantity_unit_id, &gc).await.expect("Failed to get quantity unit");
                     let task = format!("{} {} {}", name, item.amount, quantity_unit);
                     info!("Consuming task '{}' from Grocy", &task);
+                    // Create task from grocy
                     let _id = state
                         .dbconn
                         .call(move |conn| {
