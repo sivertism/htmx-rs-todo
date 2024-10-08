@@ -29,8 +29,16 @@ use clap::Parser;
 #[command(version, about, long_about = None)]
 struct Cli {
     /// Data storage directory
-    #[arg(long)]
+    #[arg(long, default_value = ".")]
     data_dir: std::path::PathBuf,
+
+    /// Listening port
+    #[arg(short, long, default_value_t = 3000)]
+    port: u16,
+
+    /// Listening address
+    #[arg(short, long, default_value = "127.0.0.1")]
+    address: String,
 }
 
 
@@ -90,7 +98,8 @@ async fn main() -> anyhow::Result<()> {
         .with_state(state);
 
     // Bind a TCP listener to the specified address
-    let listener = TcpListener::bind("127.0.0.1:3000").await?;
+    let listen_address = format!("{}:{}", cli.address, cli.port);
+    let listener = TcpListener::bind(listen_address).await?;
     info!("listening on {}", listener.local_addr().unwrap());
 
     // Start the Axum server with the defined routes

@@ -1,8 +1,15 @@
-# Run under nix:
+# Usage
+
+## NixOS
+
+### Run
 
 ```bash
-$> nix shell nix.shell
-$> cargo run
+$> nix run [-- [-p PORT] [-a LISTEN_ADDRESS] [--data-dir DATA_DIR]]
 ```
 
-*Note: don't forget to set the hosting ip to `127.0.0.1` if connecting from a local browser.*
+### Develop
+
+```bash
+$> nix develop
+```
