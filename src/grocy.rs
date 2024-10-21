@@ -1,6 +1,7 @@
 use reqwest;
 use serde::{Deserialize, de::DeserializeOwned};
 
+#[derive(Clone)]
 pub struct GrocyCredentials {
     pub api_key: String,
     pub url: String,
