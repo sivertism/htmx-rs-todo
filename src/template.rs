@@ -7,6 +7,8 @@ use axum::response::{Html, IntoResponse, Response};
 #[template(path = "index.html")] // Specify the path to the index.html template file
 pub struct IndexTemplate {
     pub selected_list: usize,
+    pub lists: Vec<List>,
+    pub tasks: Vec<Task>,
 }
 
 // A wrapper for turning askama templates into responses that can be handled by server

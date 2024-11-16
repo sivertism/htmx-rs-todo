@@ -92,13 +92,57 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn index(list_query: Query<ListQuery>) -> impl IntoResponse {
+async fn index(list_query: Query<ListQuery>, State(state): State<AppState>) -> impl IntoResponse {
     let selected_list = match list_query.list_id {
         Some(id) => id,
         None => 3,
     };
 
-    HtmlTemplate(IndexTemplate {selected_list})
+    let lists = state.db.get_lists().await.expect("Get list options");
+
+    // 1. Get Grocy credentials for the list if they exist
+    if let Some(gc) = state.db.get_grocy_credentials(selected_list as usize).await {
+        info!("Got credentials for {}", gc.url);
+
+        // 2. Get Grocy shopping list items
+        match grocy::get_shopping_list_items(&gc).await {
+            Ok(items) => {
+                info!("Got {} items from Grocy", items.len());
+
+                for item in items.into_iter() {
+                    let name = get_product_name(item.product_id, &gc).await.expect("Failed to get product name");
+                    let quantity_unit = get_quantity_unit(item.quantity_unit_id, &gc).await.expect("Failed to get quantity unit");
+                    let task = format!("{} {} {}", name, item.amount, quantity_unit);
+                    info!("Consuming task '{}' from Grocy", &task);
+                    
+                    // 3. Create task from grocy
+                    if let Ok(_id) = state.db.create_task(task, selected_list as usize).await {
+                        // 4. Delete from Grocy
+                        delete_shopping_list_item(item.id, &gc).await.expect("Failed to delete");
+                    } else {
+                      warn!("Failed to create task from Grocy shopping list item"); 
+                    }
+                }
+        },
+            Err(err) => {warn!("Failed to get shopping list items: {}", err);}
+        }
+    }
+
+    info!("Getting tasks for list_id={}", selected_list);
+    if let Ok(tasks) = state.db.get_tasks(selected_list as usize).await {
+        let incomplete : Vec<Task>= tasks.clone().into_iter().filter(|task| !task.completed).collect();
+        info!(
+            "Got incomplete tasks: {:?} from list with id {:?}",
+            incomplete, selected_list
+        );
+        let template = IndexTemplate { selected_list, lists, tasks};
+        HtmlTemplate(template).into_response()
+    } else {
+        warn!("Failed to get tasks for list_id={}", selected_list);
+        let tasks: Vec<Task> = vec![];
+        let template = IndexTemplate { selected_list, lists, tasks};
+        HtmlTemplate(template).into_response()
+    }
 }
 
 async fn get_tasks(State(state): State<AppState>, Path(list_id): Path<u32>) -> impl IntoResponse {

@@ -21,7 +21,7 @@ impl Database {
         dbconn
             .call(|conn| {
                 conn.trace(Some(|statement| {
-                    debug!("{}", statement); })); 
+                    info!("{}", statement); })); 
                     Ok(()) 
             })
             .await
@@ -81,7 +81,7 @@ impl Database {
                     FROM tasks 
                     INNER JOIN lists ON lists.id=tasks.list_id 
                     WHERE lists.id=(:list_id) 
-                    ORDER BY tasks.completed tasks.modified DESC;",
+                    ORDER BY tasks.completed, tasks.modified DESC;",
                 )?;
                 let rows = stmt.query_map(&[(":list_id", &list_id)], |row| {
                     Ok(Task {

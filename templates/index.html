@@ -63,28 +63,61 @@
 
   <main class="container" id="mainbody">
 
-  <form id="list-form" hx-post="/list" hx-swap="innerHtml"
-        onsubmit="setTimeout(() => {
-          this.reset();
-        }, 1);"
-  >
-  </form>
-
   <form>
-    <div id="list_options" hx-get="/lists?list_id={{selected_list}}" hx-target="#select-list" hx-trigger="load" hx-swap="innerHtml">
-    <label>List</label>
+    <div id="list_options">
+    <label for="list_id">List</label>
     <select name="list_id" 
       id="select-list" 
-      hx-get="/list_tables" 
-      hx-target="#task_lists" 
-      hx-trigger="load delay:0.5s, change"
+      onchange="location = this.value;"
       >
+      {%for list in lists %}
+      <option class="select-list" value="?list_id={{list.id}}"
+        {% if list.id == selected_list %} selected="selected" {% endif %}
+      >
+      {{list.name}}
+      </option>
+      {% endfor %}
     </select>
   </div>
   </form>
 
-  <div id="task_lists"></div>
+  <form id="task-form" hx-post="/{{selected_list}}/task" hx-target="#tasks" hx-swap="beforebegin" 
+        onsubmit="setTimeout(() => {
+          this.reset();
+        }, 1);"
+  >
+    <input type="text" required="true" name="text" placeholder="Add new task"/>
+  </form>
 
+  <div id="task_lists"></div>
+  <table class="task-table">
+    {%for task in tasks %}
+      <tr class={%if task.completed %} "completed" {% else %} "incomplete" {% endif %} }}>
+        <td>
+          <input 
+            type="checkbox" 
+            name="select" 
+              hx-post="/task/{{task.id}}" 
+              hx-target="closest tr" 
+              hx-swap="outerHtml" 
+              class="complete"
+            >
+            {{ task.text }}
+          </td>
+          <td>
+            <button 
+              class="outline secondary small-button"
+              hx-delete="/task/{{task.id}}" 
+              hx-target="closest tr" 
+              hx-swap="outerHtml" 
+            >
+            🗑️
+            </button>
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+    </div>
   </main>
 </body>
 </html>
