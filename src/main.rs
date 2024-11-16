@@ -46,7 +46,6 @@ struct Cli {
 
 #[derive(Clone)]
 struct AppState {
-    dbconn: Connection,
     db: Database,
 }
 
@@ -61,30 +60,10 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     tracing_subscriber::fmt::init();
-    // Create, or connect to a local SQLite database to store the tasks
-    let dbconn = Connection::open(cli.data_dir.join("todos.db"))
-        .await
-        .context("Open database")?;
-
-    // Insert basic tracing function to print sql queries to console
-    dbconn
-        .call(|conn| {
-            conn.trace(Some(|statement| {
-                debug!("{}", statement); })); 
-                Ok(()) 
-        })
-        .await
-        .context("Add tracing function")?;
-
-    // Initialize db
-    initialize_database(&dbconn)
-        .await
-        .context("Initialize database")?;
 
     let db = Database::new(cli.data_dir.join("todos.db")).await.context("Create db")?;
 
     let state = AppState {
-        dbconn,
         db
     };
 
@@ -111,18 +90,6 @@ async fn main() -> anyhow::Result<()> {
     // Start the Axum server with the defined routes
     axum::serve(listener, app).await?;
 
-    Ok(())
-}
-
-async fn initialize_database(dbconn: &Connection) -> anyhow::Result<()> {
-    dbconn
-        .call(|conn| {
-            let sql_schema = include_str!("../sql/schema.sql");
-            conn.execute_batch(sql_schema)
-                .expect("Failed to execute database schema");
-            Ok(())
-        })
-        .await?;
     Ok(())
 }
 
