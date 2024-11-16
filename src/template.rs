@@ -29,6 +29,7 @@ where
 }
 
 #[derive(Template)]
+#[allow(dead_code)]
 #[template(path = "tasks.html")]
 pub struct TasksTemplate {
     // All fields passed in template can be used by Askama
@@ -36,6 +37,7 @@ pub struct TasksTemplate {
 }
 
 #[derive(Template)]
+#[allow(dead_code)]
 #[template(path = "tasks-complete.html")]
 pub struct TasksCompleteTemplate {
     // All fields passed in template can be used by Askama
@@ -43,6 +45,7 @@ pub struct TasksCompleteTemplate {
 }
 
 #[derive(Template)]
+#[allow(dead_code)]
 #[template(path = "lists.html")]
 pub struct ListsTemplate {
     // All fields passed in template can be used by Askama
@@ -50,6 +53,7 @@ pub struct ListsTemplate {
 }
 
 #[derive(Template)]
+#[allow(dead_code)]
 #[template(path = "select_list.html")]
 pub struct ListOptionsTemplate {
     // All fields passed in template can be used by Askama
@@ -58,6 +62,7 @@ pub struct ListOptionsTemplate {
 }
 
 #[derive(Template)]
+#[allow(dead_code)]
 #[template(path = "list_tables.html")]
 pub struct ListTablesTemplate {
     // All fields passed in template can be used by Askama

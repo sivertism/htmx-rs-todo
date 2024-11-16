@@ -13,16 +13,15 @@ use axum::{
 };
 use grocy::*;
 use database::Database;
-use rusqlite;
 use serde::Deserialize;
 use anyhow::Context;
 use template::*;
+#[allow(unused_imports)]
 use todo::{List, ListForm, Task, TaskForm};
 use tokio::net::TcpListener;
-#[allow(unused_imports)]
-use tokio_rusqlite::{params, Connection};
 use tower_http::services::ServeFile;
 use tracing_subscriber;
+#[allow(unused_imports)]
 use tracing::{info, warn, debug};
 use clap::Parser;
 
@@ -46,7 +45,6 @@ struct Cli {
 
 #[derive(Clone)]
 struct AppState {
-    dbconn: Connection,
     db: Database,
 }
 
@@ -61,30 +59,10 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     tracing_subscriber::fmt::init();
-    // Create, or connect to a local SQLite database to store the tasks
-    let dbconn = Connection::open(cli.data_dir.join("todos.db"))
-        .await
-        .context("Open database")?;
-
-    // Insert basic tracing function to print sql queries to console
-    dbconn
-        .call(|conn| {
-            conn.trace(Some(|statement| {
-                debug!("{}", statement); })); 
-                Ok(()) 
-        })
-        .await
-        .context("Add tracing function")?;
-
-    // Initialize db
-    initialize_database(&dbconn)
-        .await
-        .context("Initialize database")?;
 
     let db = Database::new(cli.data_dir.join("todos.db")).await.context("Create db")?;
 
     let state = AppState {
-        dbconn,
         db
     };
 
@@ -114,18 +92,6 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn initialize_database(dbconn: &Connection) -> anyhow::Result<()> {
-    dbconn
-        .call(|conn| {
-            let sql_schema = include_str!("../sql/schema.sql");
-            conn.execute_batch(sql_schema)
-                .expect("Failed to execute database schema");
-            Ok(())
-        })
-        .await?;
-    Ok(())
-}
-
 async fn index(list_query: Query<ListQuery>) -> impl IntoResponse {
     let selected_list = match list_query.list_id {
         Some(id) => id,
@@ -152,7 +118,7 @@ async fn get_tasks(State(state): State<AppState>, Path(list_id): Path<u32>) -> i
                     info!("Consuming task '{}' from Grocy", &task);
                     
                     // 3. Create task from grocy
-                    if let Ok(id) = state.db.create_task(task, list_id as usize).await {
+                    if let Ok(_id) = state.db.create_task(task, list_id as usize).await {
                         // 4. Delete from Grocy
                         delete_shopping_list_item(item.id, &gc).await.expect("Failed to delete");
                     } else {
@@ -209,7 +175,7 @@ async fn get_completed(
 
 // delete task handler
 async fn delete_task(State(state): State<AppState>, Path(id): Path<u32>) -> StatusCode {
-    state.db.delete_task(id as usize);
+    state.db.delete_task(id as usize).await.expect("Delete task");
     info!("Deleted task with id {}", id);
     StatusCode::OK
 }
@@ -275,11 +241,11 @@ async fn create_list(State(state): State<AppState>, form: Form<ListForm>) -> Sta
 
     let grocy_credentials = match (form.grocy_url.clone(), form.grocy_api_key.clone()) {
         (Some(url), Some(api_key)) => Some(GrocyCredentials{url, api_key}),
-        (Some(url), None) => {
+        (Some(_url), None) => {
             warn!("Grocy URL provided, but no API key.");
             None
             },
-        (None, Some(api_key)) => {
+        (None, Some(_api_key)) => {
             warn!("Grocy API key provided, but no URL");
             None
             },
