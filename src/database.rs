@@ -1,6 +1,6 @@
 use rusqlite;
 use anyhow::Context;
-use tokio_rusqlite::{params, Connection};
+use tokio_rusqlite::Connection;
 use crate::todo::{Task, List};
 use tracing::{info, warn, debug};
 use crate::grocy::*;

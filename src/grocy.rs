@@ -15,6 +15,7 @@ impl Endpoints {
 }
 
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ShoppingListItem {
     pub id: usize,
@@ -28,6 +29,7 @@ pub struct ShoppingListItem {
     row_created_timestamp: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct QuantityUnit {
     pub id: usize,
@@ -43,6 +45,7 @@ pub struct QuantityUnit {
     row_created_timestamp: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct Product {
     pub id: usize,
@@ -148,6 +151,7 @@ pub struct Product {
     pub qu_id_price: usize,
 }
 
+#[allow(dead_code)]
 pub async fn connect(api_key: String) -> Result<reqwest::Client, reqwest::Error> {
     let builder = reqwest::ClientBuilder::new();
     let mut headers = reqwest::header::HeaderMap::new();
@@ -226,7 +230,7 @@ async fn delete_single(cred: &GrocyCredentials, endpoint: &str, id :usize) -> Re
     let client = reqwest::Client::new();
     let url = format!("{}/{}/{}", &cred.url, endpoint, id);
     println!("DELETE {:?}", url);
-    let res = client
+    let _res = client
         .delete(reqwest::Url::parse(&url).expect(""))
         .header("GROCY-API-KEY", cred.api_key.clone())
         .send()
