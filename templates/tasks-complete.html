@@ -1,36 +1,34 @@
-<tbody 
+<tbody
   {%if task.completed %}
-  hx-swap-oob="beforebegin:#completed"
+    hx-swap-oob="afterbegin:#completedtablebody"
   {% else %}
-  hx-swap-oob="beforebegin:#tasks"
+    hx-swap-oob="beforeend:#tasktablebody"
   {% endif %}
   >
   <tr 
+    id="row{{task.id}}" 
   {%if task.completed %}
     class="completed"
   {% else %}
     class="task"
   {% endif %}
     >
-    <td>
-      <input 
-        type="checkbox" 
-        name="select" 
-        hx-post="/task/{{task.id}}" 
-        hx-target="closest tr" 
-        hx-swap="outerHtml" 
-      >
-      {{ task.text }}
+      <td>
+        <input 
+          type="checkbox" 
+          name="select" 
+          {%if task.completed %}checked{%endif%}
+          hx-post="/task/{{task.id}}" 
+        >
+        {{ task.text }}
+      </td>
+      <td>
+        <button 
+          class="outline secondary small-button"
+          hx-delete="/task/{{task.id}}" 
+        >
+        🗑️
+      </button>
     </td>
-    <td>
-      <button 
-        class="outline secondary small-button"
-        hx-delete="/task/{{task.id}}" 
-        hx-target="closest tr" 
-        hx-swap="outerHtml" 
-      >
-      🗑️
-    </button>
-  </td>
-</tr>
+  </tr>
 </tbody>

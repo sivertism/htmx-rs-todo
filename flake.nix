@@ -25,7 +25,7 @@
         default = pkgsFor.${system}.callPackage 
         pkgs.rustPlatform.buildRustPackage rec {
           pname = "htmx-rs-todo";
-          version = "0.1.1";
+          version = "0.1.2";
           cargoLock.lockFile = ./Cargo.lock;
           src = pkgs.lib.cleanSource ./.;
           buildInputs = [
@@ -60,14 +60,15 @@
               llvmPackages.bintools
               rustup
               rust-analyzer
-              rustfmt
               clippy
               pkg-config
+              rustfmt
             ];
             buildInputs = with pkgs; [
               # Run-time dependencies
               openssl
               sqlite
+              rustfmt
             ];
             RUSTC_VERSION = overrides.toolchain.channel;
             # https://github.com/rust-lang/rust-bindgen#environment-variables

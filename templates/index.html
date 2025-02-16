@@ -3,6 +3,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
+  <meta name="htmx-config" content='{"useTemplateFragments":"true"}'>
   <title>Todo</title>
 
   <!-- HTMX Import -->
@@ -81,7 +82,7 @@
   </div>
   </form>
 
-  <form id="task-form" hx-post="/{{selected_list}}/task" hx-target="#tasks" hx-swap="beforebegin" 
+  <form id="task-form" hx-post="/{{selected_list}}/task" hx-target="#taskstablebody" hx-swap="afterbegin" 
         onsubmit="setTimeout(() => {
           this.reset();
         }, 1);"
@@ -89,35 +90,60 @@
     <input type="text" required="true" name="text" placeholder="Add new task"/>
   </form>
 
-  <div id="task_lists"></div>
-  <table class="task-table">
-    {%for task in tasks %}
-      <tr class={%if task.completed %} "completed" {% else %} "incomplete" {% endif %} }}>
-        <td>
-          <input 
-            type="checkbox" 
-            name="select" 
-              hx-post="/task/{{task.id}}" 
-              hx-target="closest tr" 
-              hx-swap="outerHtml" 
-              class="complete"
-            >
-            {{ task.text }}
-          </td>
-          <td>
-            <button 
-              class="outline secondary small-button"
-              hx-delete="/task/{{task.id}}" 
-              hx-target="closest tr" 
-              hx-swap="outerHtml" 
-            >
-            🗑️
-            </button>
-          </td>
-        </tr>
+  <table class="tasktable" id="tasktable">
+    <tbody id="tasktablebody" hx-target="closest tr" hx-swap="outerHtml">
+      {% for task in tasks %}
+        {% if task.completed %}
+        {% else %}
+        <tr class="tasks" id="row{{task.id}}">
+            <td>
+              <input 
+                type="checkbox" 
+                name="select" 
+                  hx-post="/task/{{task.id}}" 
+                >
+                {{ task.text }}
+            </td>
+            <td>
+              <button 
+                class="outline secondary small-button"
+                hx-delete="/task/{{task.id}}" 
+              >
+              🗑️
+              </button>
+            </td>
+          </tr>
+        {% endif %}
       {% endfor %}
+    </tbody>
+  </table>
+  <table class="completedtable" id="completedtable">
+    <tbody id="completedtablebody" hx-target="closest tr" hx-swap="outerHtml">
+      {%for task in tasks %}
+        {%if task.completed %}
+        <tr id="row{{task.id}}" class="completed">
+              <td>
+                <input 
+                  type="checkbox" 
+                  name="select" 
+                  hx-post="/task/{{task.id}}" 
+                  checked
+                >
+                  {{ task.text }}
+                </td>
+                <td>
+                  <button 
+                    class="outline secondary small-button"
+                    hx-delete="/task/{{task.id}}" 
+                  >
+                  🗑️
+                  </button>
+                </td>
+              </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
     </table>
-    </div>
   </main>
 </body>
 </html>
