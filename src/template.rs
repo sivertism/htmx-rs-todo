@@ -32,16 +32,8 @@ where
 
 #[derive(Template)]
 #[allow(dead_code)]
-#[template(path = "tasks.html")]
-pub struct TasksTemplate {
-    // All fields passed in template can be used by Askama
-    pub tasks: Vec<Task>,
-}
-
-#[derive(Template)]
-#[allow(dead_code)]
-#[template(path = "tasks-complete.html")]
-pub struct TasksCompleteTemplate {
+#[template(path = "task.html")]
+pub struct TaskTemplate {
     // All fields passed in template can be used by Askama
     pub task: Task,
 }
@@ -61,12 +53,4 @@ pub struct ListOptionsTemplate {
     // All fields passed in template can be used by Askama
     pub lists: Vec<List>,
     pub selected_list: usize,
-}
-
-#[derive(Template)]
-#[allow(dead_code)]
-#[template(path = "list_tables.html")]
-pub struct ListTablesTemplate {
-    // All fields passed in template can be used by Askama
-    pub list: List,
 }

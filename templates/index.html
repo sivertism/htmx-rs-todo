@@ -7,7 +7,7 @@
   <title>Todo</title>
 
   <!-- HTMX Import -->
-  <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" >
 </head>
@@ -55,9 +55,9 @@
       <li>HTMX + Rust + SQLite = crappy todo app</li>
     </ul>
     <ul>
-      <li><a href="/about">About</a></li>
+      <li><a href="/">Home</a></li>
       <li><button class="outline" hx-get="/create_list" hx-target="#mainbody">Create</button></li>
-      <li><a href="#">Open</a></li>
+      <li><a href="/about">About</a></li>
     </ul>
     <nav>
   </header>
@@ -91,7 +91,7 @@
   </form>
 
   <table class="tasktable" id="tasktable">
-    <tbody id="tasktablebody" hx-target="closest tr" hx-swap="outerHtml">
+    <tbody id="tasktablebody" hx-target="closest tr" hx-swap="outerHTML">
       {% for task in tasks %}
         {% if task.completed %}
         {% else %}
@@ -118,7 +118,7 @@
     </tbody>
   </table>
   <table class="completedtable" id="completedtable">
-    <tbody id="completedtablebody" hx-target="closest tr" hx-swap="outerHtml">
+    <tbody id="completedtablebody" hx-target="closest tr" hx-swap="outerHTML">
       {%for task in tasks %}
         {%if task.completed %}
         <tr id="row{{task.id}}" class="completed">
