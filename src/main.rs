@@ -60,7 +60,11 @@ async fn main() -> anyhow::Result<()> {
 
     tracing_subscriber::fmt::init();
 
-    let db = Database::new(cli.data_dir.join("todos.db")).await.context("Create db")?;
+    let dbpath = cli.data_dir.join("todos.db");
+
+    info!("Opening database at {:?}", dbpath);
+
+    let db = Database::new(dbpath).await.context("Create db")?;
 
     let state = AppState {
         db
@@ -103,7 +107,6 @@ async fn index(list_query: Query<ListQuery>, State(state): State<AppState>) -> i
         match grocy::get_shopping_list_items(&gc).await {
             Ok(items) => {
                 info!("Got {} items from Grocy", items.len());
-
                 for item in items.into_iter() {
                     let name = get_product_name(item.product_id, &gc).await.expect("Failed to get product name");
                     let quantity_unit = get_quantity_unit(item.quantity_unit_id, &gc).await.expect("Failed to get quantity unit");

@@ -62,9 +62,9 @@ impl Database {
                 let t = conn.query_row("SELECT * FROM tasks WHERE id=(?1)", &[&id], 
                 |row| {
                     Ok(Task {
-                        id: row.get(0)?,
-                        text: row.get(1)?,
-                        completed: row.get(2)?,
+                        id: row.get(0).expect("Failed to get id, corrupt database?"),
+                        text: row.get(1).expect("Failed to get id, corrupt database?"),
+                        completed: row.get(2).expect("Failed to get id, corrupt database?"),
                         list_id: id as usize,
                     })
                 });
@@ -85,9 +85,9 @@ impl Database {
                 )?;
                 let rows = stmt.query_map(&[(":list_id", &list_id)], |row| {
                     Ok(Task {
-                        id: row.get(0)?,
-                        text: row.get(1)?,
-                        completed: row.get(2)?,
+                        id: row.get(0).expect("Failed to get id, corrupt database?"),
+                        text: row.get(1).expect("Failed to get id, corrupt database?"),
+                        completed: row.get(2).expect("Failed to get id, corrupt database?"),
                         list_id: list_id,
                     })
                 })?;
@@ -109,8 +109,8 @@ impl Database {
                     &[(":list_id", &list_id)],
                     |row| {
                         Ok(GrocyCredentials {
-                            url: row.get(0)?,
-                            api_key: row.get(1)?,
+                            url: row.get(0).expect("Failed to get row value, corrupt database?"),
+                            api_key: row.get(1).expect("Failed to get row value, corrupt database?"),
                         })
                     },
                 )?;
@@ -231,8 +231,8 @@ impl Database {
                     &[&id],
                     |row| {
                         Ok(List {
-                            id: row.get(0)?,
-                            name: row.get(1)?,
+                            id: row.get(0).expect("Failed to get row value, corrupt database?"),
+                            name: row.get(1).expect("Failed to get row value, corrupt database?"),
                         })
                     },
                 ))
@@ -250,8 +250,8 @@ impl Database {
                 )?;
                 let rows = stmt.query_map([], |row| {
                     Ok(List {
-                        id: row.get(0)?,
-                        name: row.get(1)?,
+                        id: row.get(0).expect("Failed to get row value, corrupt database?"),
+                        name: row.get(1).expect("Failed to get row value, corrupt database?"),
                     })
                 })?;
                 let mut lists = Vec::new();
