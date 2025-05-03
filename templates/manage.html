@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="htmx-config" content='{"useTemplateFragments":"true"}'>
+  <title>Todo</title>
+
+  <!-- HTMX Import -->
+  <script src="./vendor/htmx.js"></script>
+  <link rel="stylesheet" href="./vendor/pico.min.css" >
+</head>
+
+<body>
+  <header class="container">
+    <nav>
+    <ul>
+      <li>HTMX + Rust + SQLite = crappy todo app</li>
+    </ul>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><button class="outline" hx-get="/manage" hx-target="#mainbody">Manage</button></li>
+      <li><a href="/about">About</a></li>
+    </ul>
+    <nav>
+  </header>
+
+  <main class="container" id="mainbody">
+
+  <h1>Add new list</h1>
+
+  <form id="create-list-form" 
+     hx-post="/create_list" hx-swap="beforeend" hx-target="#select-list"
+     onsubmit="setTimeout(() => {
+        this.reset();
+     }, 1);"
+  >
+  <label for="name">List name</label>
+  <input type="text" id="name" required name="name" placeholder="Add new todo list"/>
+  <label for="url">[Optional] Grocy URL</label>
+  <input type="text" id="url" name="grocy_url" placeholder="https://grocy.example.com"/>
+  <label for="apiKey">[Optional] Grocy API key</label>
+  <input type="text" id="apiKey" name="grocy_api_key" placeholder="HSHNaMMG6JmrTXa836FSQeVq79pDTm866eKFXh4f"/>
+  <button type="submit">Submit</button>
+  </form>
+
+  <h1>Modify</h1>
+  <form>
+    <div id="list_options">
+    <label for="list_id">List</label>
+    <select name="list_id" 
+      id="select-list" 
+      onchange="location = this.value;"
+      >
+      {%for list in lists %}
+      <option class="select-list" value="?list_id={{list.id}}"
+        {% if list.id == selected_list %} selected="selected" {% endif %}
+      >
+      {{list.name}}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  </form>
+
+  <button 
+    class="outline secondary small-button"
+    hx-delete="/list/{{selected_list}}" 
+    hx-swap="none"
+    hx-confirm="Are you sure you want to delete the list?"
+  >
+  🗑️ Delete list
+  </button>
+
+</body>
+</html>
+

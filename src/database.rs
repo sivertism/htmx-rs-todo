@@ -56,6 +56,23 @@ impl Database {
             .context("Delete task")?)
     }
 
+    pub async fn delete_list(&self, id: usize) -> anyhow::Result<()> {
+        Ok(self.connection
+            .call(
+                move |conn| match conn.execute("DELETE FROM lists WHERE id=(?1)", &[&id]) {
+                    Ok(_n_updated) => {
+                        Ok(())
+                    }
+                    Err(err) => {
+                        println!("Delete failed: {}", err);
+                        Ok(())
+                    }
+                },
+            )
+            .await
+            .context("Delete list")?)
+    }
+
     pub async fn get_task(&self, id: usize) -> anyhow::Result<Task> {
         Ok(self.connection
             .call(move |conn| {
@@ -196,6 +213,7 @@ impl Database {
             .await
             .context("Create list on db.")?;
         if let Some(gc) = grocy_credentials {
+            if gc.url != "" && gc.api_key != "" {
             let gc = gc.clone();
             info!("Inserting Grocy credentials for {}", gc.url);
             self
@@ -217,6 +235,7 @@ impl Database {
                 })
                 .await
                 .context("Store Grocy credentials.")?;
+            }
         }
         Ok(id)
     }

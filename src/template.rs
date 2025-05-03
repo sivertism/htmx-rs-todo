@@ -11,6 +11,13 @@ pub struct IndexTemplate {
     pub tasks: Vec<Task>,
 }
 
+#[derive(Template)]
+#[template(path = "manage.html")] // Specify the path to the index.html template file
+pub struct ManageTemplate {
+    pub selected_list: usize,
+    pub lists: Vec<List>,
+}
+
 // A wrapper for turning askama templates into responses that can be handled by server
 pub struct HtmlTemplate<T>(pub T);
 

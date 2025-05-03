@@ -6,8 +6,8 @@ mod database;
 #[allow(unused_imports)]
 use axum::{
     extract::{Extension, Path, Query, State},
-    http::StatusCode,
-    response::IntoResponse,
+    http::{StatusCode, HeaderMap},
+    response::{IntoResponse, Response, Html, Redirect},
     routing::{delete, get, get_service, post},
     Form,
 };
@@ -19,7 +19,7 @@ use template::*;
 #[allow(unused_imports)]
 use todo::{List, ListForm, Task, TaskForm};
 use tokio::net::TcpListener;
-use tower_http::services::ServeFile;
+use tower_http::services::{ServeFile, ServeDir};
 use tracing_subscriber;
 #[allow(unused_imports)]
 use tracing::{info, warn, debug};
@@ -72,12 +72,16 @@ async fn main() -> anyhow::Result<()> {
 
     let app = axum::Router::new()
         .route("/", get(index))
+        .route("/manage", get(manage).post(create_list))
+        .route("/list/:id", delete(delete_list))
         .route("/task/:id", delete(delete_task).post(toggle_task))
         .route("/:list_id/task", post(create_task))
         .route(
             "/create_list",
             get_service(ServeFile::new("templates/create_list.html")).post(create_list),
         )
+        //.route("/vendor", get_service(ServeDir::new("./vendor")))
+        .nest_service("/vendor", get_service(ServeDir::new("./vendor")))
         .with_state(state);
 
     // Bind a TCP listener to the specified address
@@ -143,14 +147,22 @@ async fn index(list_query: Query<ListQuery>, State(state): State<AppState>) -> i
     }
 }
 
-// delete task handler
 async fn delete_task(State(state): State<AppState>, Path(id): Path<u32>) -> StatusCode {
     state.db.delete_task(id as usize).await.expect("Delete task");
     info!("Deleted task with id {}", id);
     StatusCode::OK
 }
 
-// complete tasks handler
+async fn delete_list(State(state): State<AppState>, Path(id): Path<u32>) -> impl IntoResponse {
+    state.db.delete_list(id as usize).await.expect("Delete list");
+    info!("Deleted list with id {}", id);
+
+    // Need to use HX-Redirect to force redirect when using HTMX
+    let mut headers = HeaderMap::new();
+    headers.insert("HX-Redirect", "/manage".parse().unwrap());
+    (headers, "").into_response()
+}
+
 async fn toggle_task(
     State(state): State<AppState>,
     Path(id): Path<u32>,
@@ -193,7 +205,7 @@ async fn create_task(
     HtmlTemplate(TaskTemplate { task })
 }
 
-async fn create_list(State(state): State<AppState>, form: Form<ListForm>) -> StatusCode {
+async fn create_list(State(state): State<AppState>, form: Form<ListForm>) -> Response {
     let name = form.name.clone();
 
     let grocy_credentials = match (form.grocy_url.clone(), form.grocy_api_key.clone()) {
@@ -209,10 +221,23 @@ async fn create_list(State(state): State<AppState>, form: Form<ListForm>) -> Sta
         (None, None) => None
     };
 
-    if let Ok(id) = state.db.create_list(name, grocy_credentials.as_ref()).await.context("Create list") {
+    if let Ok(id) = state.db.create_list(name.clone(), grocy_credentials.as_ref()).await.context("Create list") {
         info!("List item with id {} created", id);
-        StatusCode::CREATED
+        return Html(format!(r#"<option class="select-list" value="?list_id={id}">{name}</option>"#)).into_response();
     } else {
-        StatusCode::NOT_ACCEPTABLE
+        warn!("Failed to create list");
+        return StatusCode::BAD_REQUEST.into_response();
     }
+
+}
+
+async fn manage(list_query: Query<ListQuery>, State(state): State<AppState>) -> impl IntoResponse {
+    let selected_list = match list_query.list_id {
+        Some(id) => id,
+        None => 3,
+    };
+
+    let lists = state.db.get_lists().await.expect("Get list options");
+    let template = ManageTemplate { selected_list, lists};
+    HtmlTemplate(template).into_response()
 }
