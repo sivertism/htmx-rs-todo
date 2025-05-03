@@ -13,6 +13,7 @@ use axum::{
 };
 use grocy::*;
 use database::Database;
+use reqwest::header;
 use serde::Deserialize;
 use anyhow::Context;
 use template::*;
@@ -53,6 +54,9 @@ struct ListQuery {
     list_id: Option<usize>,
 }
 
+const HTMX_JS_GZIP: &[u8] = include_bytes!("../vendor/htmx.js.gz");
+const PICO_CSS_GZIP: &[u8] = include_bytes!("../vendor/pico.css.gz");
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 
@@ -80,8 +84,8 @@ async fn main() -> anyhow::Result<()> {
             "/create_list",
             get_service(ServeFile::new("templates/create_list.html")).post(create_list),
         )
-        //.route("/vendor", get_service(ServeDir::new("./vendor")))
-        .nest_service("/vendor", get_service(ServeDir::new("./vendor")))
+        .route("/vendor/htmx.js", get(htmx))
+        .route("/vendor/pico.min.css", get(picocss))
         .with_state(state);
 
     // Bind a TCP listener to the specified address
@@ -240,4 +244,18 @@ async fn manage(list_query: Query<ListQuery>, State(state): State<AppState>) -> 
     let lists = state.db.get_lists().await.expect("Get list options");
     let template = ManageTemplate { selected_list, lists};
     HtmlTemplate(template).into_response()
+}
+
+async fn htmx() -> impl IntoResponse {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, "application/javascript".parse().unwrap());
+    headers.insert(header::CONTENT_ENCODING, "gzip".parse().unwrap());
+    (headers, HTMX_JS_GZIP)
+}
+
+async fn picocss() -> impl IntoResponse {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, "text/css".parse().unwrap());
+    headers.insert(header::CONTENT_ENCODING, "gzip".parse().unwrap());
+    (headers, PICO_CSS_GZIP)
 }

@@ -25,7 +25,7 @@
         default = pkgsFor.${system}.callPackage 
         pkgs.rustPlatform.buildRustPackage rec {
           pname = "htmx-rs-todo";
-          version = "0.3.0";
+          version = "0.4.0";
           cargoLock.lockFile = ./Cargo.lock;
           src = pkgs.lib.cleanSource ./.;
           buildInputs = [
