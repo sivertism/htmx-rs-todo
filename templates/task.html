@@ -6,13 +6,13 @@
   {% endif %}
   >
   <tr 
-    id="row{{task.id}}" 
   {%if task.completed %}
     class="completed"
   {% else %}
     class="task"
   {% endif %}
-    >
+     data-id="{{task.id}}"   
+   >
       <td>
         <input 
           type="checkbox" 
@@ -20,6 +20,8 @@
           {%if task.completed %}checked{%endif%}
           hx-post="/task/{{task.id}}" 
         >
+      </td>
+      <td>
         {{ task.text }}
       </td>
       <td>

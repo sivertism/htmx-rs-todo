@@ -5,7 +5,7 @@ mod database;
 
 #[allow(unused_imports)]
 use axum::{
-    extract::{Extension, Path, Query, State},
+    extract::{Extension, Path, Query, State, Json},
     http::{StatusCode, HeaderMap},
     response::{IntoResponse, Response, Html, Redirect},
     routing::{delete, get, get_service, post},
@@ -54,7 +54,13 @@ struct ListQuery {
     list_id: Option<usize>,
 }
 
+#[derive(Deserialize)]
+struct ReorderPayload {
+    order: Vec<u64>,
+}
+
 const HTMX_JS_GZIP: &[u8] = include_bytes!("../vendor/htmx.js.gz");
+const SORTABLE_JS_GZIP: &[u8] = include_bytes!("../vendor/Sortable.js.gz");
 const PICO_CSS_GZIP: &[u8] = include_bytes!("../vendor/pico.css.gz");
 
 #[tokio::main]
@@ -80,11 +86,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/list/:id", delete(delete_list))
         .route("/task/:id", delete(delete_task).post(toggle_task))
         .route("/:list_id/task", post(create_task))
-        .route(
-            "/create_list",
-            get_service(ServeFile::new("templates/create_list.html")).post(create_list),
-        )
+        .route( "/create_list", post(create_list))
+        .route("/reorder", post(reorder))
         .route("/vendor/htmx.js", get(htmx))
+        .route("/vendor/Sortable.js", get(sortable))
         .route("/vendor/pico.min.css", get(picocss))
         .with_state(state);
 
@@ -253,9 +258,29 @@ async fn htmx() -> impl IntoResponse {
     (headers, HTMX_JS_GZIP)
 }
 
+async fn sortable() -> impl IntoResponse {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, "application/javascript".parse().unwrap());
+    headers.insert(header::CONTENT_ENCODING, "gzip".parse().unwrap());
+    (headers, SORTABLE_JS_GZIP)
+}
+
 async fn picocss() -> impl IntoResponse {
     let mut headers = HeaderMap::new();
     headers.insert(header::CONTENT_TYPE, "text/css".parse().unwrap());
     headers.insert(header::CONTENT_ENCODING, "gzip".parse().unwrap());
     (headers, PICO_CSS_GZIP)
+}
+
+async fn reorder(State(state): State<AppState>,
+                 Query(params): Query<ListQuery>, 
+                 Json(payload): Json<ReorderPayload>,
+                 ) -> StatusCode {
+    println!("List {:?} reordered to {:?}", params.list_id, payload.order);
+    //state.db.reorder(params.list_id.unwrap(), payload.order).await.expect("reorder");
+    //StatusCode::OK
+    match state.db.reorder(params.list_id.unwrap(), payload.order).await {
+        Ok(()) => StatusCode::OK,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
 }

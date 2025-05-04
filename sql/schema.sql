@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   id INTEGER PRIMARY KEY,
   task TEXT NOT NULL,
   completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0,1)),
+  position INTEGER NOT NULL DEFAULT 0,
   created TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') ),
   modified TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') ),
   list_id INTEGER, 

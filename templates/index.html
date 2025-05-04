@@ -8,7 +8,47 @@
 
   <!-- HTMX Import -->
   <script src="./vendor/htmx.js"></script>
+  <script src="./vendor/Sortable.js"></script>
   <link rel="stylesheet" href="./vendor/pico.min.css" >
+
+  <script> 
+    ( async function () {
+    await new Promise(r => setTimeout(r, 100));
+    new Sortable(document.getElementById('tasktablebody'), {
+      animation: 150,
+      delay: 150,
+      onEnd: function(evt) { 
+        const itemIds = [...evt.to.children].map(el => el.dataset.id);
+        const dropdown = document.getElementById("select-list");
+        const selectedValue = dropdown.value;
+        const url = `/reorder${selectedValue}`;
+
+
+        console.log(JSON.stringify({'order': itemIds}));
+        console.log(selectedValue);
+        console.log(url);
+        console.log(JSON.stringify(itemIds));
+
+        fetch( url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({'order': itemIds.map(Number)}),
+        }).then(
+          response => {
+            console.log(`Reorder response: ${response}`);
+            if (!response.ok) {
+              throw new Error("Failed to reorder");
+            }
+            console.log("Reorder successful");
+          }
+        );
+      },
+    });
+    })();
+      
+  </script>
 </head>
 
 <style>
@@ -19,19 +59,16 @@
   }
 
   table {
-      margin-left: 0; /* Aligns the table to the left side of the container */
       width: 100%;
-      table-layout: fixed;
+      table-layout: auto;
+      white-space: normal;
+      word-break: break-word;
   }
 
-  td:first-child, th:first-child {
-      max-width: 99%; /* Allows the first two columns to size based on their content */
-      white-space: normal; /* Prevents wrapping of text in the first two columns */
-  }
-
-  td:nth-child(2), th:nth-child(2) {
-      width: 50px; /* Allows the first two columns to size based on their content */
-      white-space: nowrap; /* Prevents wrapping of text in the first two columns */
+  td:first-child, th:first-child,
+  td:last-child, th:last-child {
+    white-space: nowrap;
+    width: 1%; /* Force minimal space */
   }
 
   .small-button {
@@ -43,6 +80,12 @@
     text-decoration: line-through;
     color: var(--primary);
     font-style: italic;
+  }
+
+  .sortable-chosen {
+    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
   }
 
 </style>
@@ -94,13 +137,15 @@
       {% for task in tasks %}
         {% if task.completed %}
         {% else %}
-        <tr class="tasks" id="row{{task.id}}">
+        <tr class="tasks" data-id="{{task.id}}">
             <td>
               <input 
                 type="checkbox" 
                 name="select" 
                   hx-post="/task/{{task.id}}" 
                 >
+            </td>
+            <td>
                 {{ task.text }}
             </td>
             <td>
@@ -120,7 +165,7 @@
     <tbody id="completedtablebody" hx-target="closest tr" hx-swap="outerHTML">
       {%for task in tasks %}
         {%if task.completed %}
-        <tr id="row{{task.id}}" class="completed">
+        <tr class="completed" data-id="{{task.id}}">
               <td>
                 <input 
                   type="checkbox" 

@@ -98,7 +98,7 @@ impl Database {
                     FROM tasks 
                     INNER JOIN lists ON lists.id=tasks.list_id 
                     WHERE lists.id=(:list_id) 
-                    ORDER BY tasks.completed, tasks.modified DESC;",
+                    ORDER BY tasks.position ASC, tasks.completed DESC, tasks.modified DESC;",
                 )?;
                 let rows = stmt.query_map(&[(":list_id", &list_id)], |row| {
                     Ok(Task {
@@ -281,5 +281,52 @@ impl Database {
             })
             .await
             .context("Failed to get lists")?)
+    }
+
+    pub async fn reorder(&self, list_id: usize, order: Vec<u64>) -> anyhow::Result<()> {
+        // Construct something like
+        // UPDATE todos
+        // SET 'position' = CASE id
+        //   WHEN 5 THEN 0
+        //   WHEN 3 THEN 1
+        //   WHEN 9 THEN 2
+        //   WHEN 1 THEN 3
+        // END
+        // WHERE id IN (5, 3, 9, 1);
+        let mut stmt = String::from("UPDATE tasks");    
+
+
+        stmt += "\nSET 'position' = CASE id\n  ";
+        stmt += &order.iter().enumerate()
+            .map(|(i, id)| format!("WHEN {id} THEN {i}"))
+            .collect::<Vec<String>>()
+            .join("\n  ");
+        
+        stmt += "\nEND";
+        
+        stmt +=  format!("\nWHERE list_id={list_id}").as_str();
+        stmt += "\n  AND id IN (";
+        
+        stmt += &order.iter()
+            .map(|id| id.to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        stmt += ");";
+
+        Ok(self.connection
+            .call(
+                move |conn| match conn.execute(&stmt, []) {
+                    Ok(_n_updated) => {
+                        Ok(())
+                    }
+                    Err(err) => {
+                        println!("Reorder failed: {}", err);
+                        Ok(())
+                    }
+                },
+            )
+            .await
+            .context("Reorder tasks")?)
     }
 }
