@@ -12,42 +12,67 @@
   <link rel="stylesheet" href="./vendor/pico.min.css" >
 
   <script> 
-    ( async function () {
-    await new Promise(r => setTimeout(r, 100));
-    new Sortable(document.getElementById('tasktablebody'), {
-      animation: 150,
-      delay: 150,
-      onEnd: function(evt) { 
-        const itemIds = [...evt.to.children].map(el => el.dataset.id);
-        const dropdown = document.getElementById("select-list");
-        const selectedValue = dropdown.value;
-        const url = `/reorder${selectedValue}`;
+    let sortableInstance = null;
 
+    function initializeSortable() {
+      const tbody = document.getElementById('tasktablebody');
+      if (!tbody) return;
 
-        console.log(JSON.stringify({'order': itemIds}));
-        console.log(selectedValue);
-        console.log(url);
-        console.log(JSON.stringify(itemIds));
+      // Destroy existing instance if it exists
+      if (sortableInstance) {
+        sortableInstance.destroy();
+      }
 
-        fetch( url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({'order': itemIds.map(Number)}),
-        }).then(
-          response => {
-            console.log(`Reorder response: ${response}`);
+      sortableInstance = new Sortable(tbody, {
+        animation: 150,
+        delay: 100, // Reduced for better mobile responsiveness
+        delayOnTouchStart: true, // Better mobile touch handling
+        onEnd: function(evt) { 
+          const itemIds = [...evt.to.children].map(el => el.dataset.id);
+          const dropdown = document.getElementById("select-list");
+          const selectedValue = dropdown.value;
+          const url = `/reorder${selectedValue}`;
+
+          console.log('Reordering tasks:', itemIds);
+
+          fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({'order': itemIds.map(Number)}),
+          }).then(response => {
             if (!response.ok) {
+              console.error('Failed to reorder tasks');
               throw new Error("Failed to reorder");
             }
             console.log("Reorder successful");
-          }
-        );
-      },
+          }).catch(error => {
+            console.error('Reorder error:', error);
+          });
+        },
+      });
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeSortable();
     });
-    })();
-      
+
+    // Reinitialize after HTMX updates
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      // Only reinitialize if the task table was affected
+      if (evt.target.id === 'tasktablebody' || evt.target.closest('#tasktablebody')) {
+        setTimeout(initializeSortable, 10); // Small delay to ensure DOM is ready
+      }
+    });
+
+    // Also handle other HTMX events that might affect the table
+    document.body.addEventListener('htmx:afterSettle', function(evt) {
+      if (evt.target.id === 'tasktablebody' || evt.target.closest('#tasktablebody')) {
+        setTimeout(initializeSortable, 10);
+      }
+    });
   </script>
 </head>
 
@@ -60,15 +85,55 @@
 
   table {
       width: 100%;
-      table-layout: auto;
+      table-layout: fixed; /* Force consistent column widths */
       white-space: normal;
       word-break: break-word;
+      margin-bottom: 1rem;
   }
 
-  td:first-child, th:first-child,
-  td:last-child, th:last-child {
-    white-space: nowrap;
-    width: 1%; /* Force minimal space */
+  /* Force both tables to have identical layouts and override PicoCSS defaults */
+  .tasktable, .completedtable {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Force all table cells to respect the column widths */
+  .tasktable td, .completedtable td {
+    padding: 0.5rem;
+    vertical-align: middle;
+  }
+
+  /* Checkbox column - fixed width */
+  .tasktable td:first-child, 
+  .completedtable td:first-child {
+    width: 3rem !important;
+    min-width: 3rem;
+    max-width: 3rem;
+    text-align: center;
+    padding: 0.5rem 0.25rem;
+  }
+
+  /* Button column - fixed width */
+  .tasktable td:last-child, 
+  .completedtable td:last-child {
+    width: 4rem !important;
+    min-width: 4rem;
+    max-width: 4rem;
+    text-align: center;
+    padding: 0.5rem 0.25rem;
+  }
+
+  /* Text column - flexible width */
+  .tasktable td:nth-child(2), 
+  .completedtable td:nth-child(2) {
+    width: auto !important;
+    padding: 0.5rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   .small-button {
@@ -88,6 +153,19 @@
     transition: transform 0.1s ease, box-shadow 0.1s ease;
   }
 
+  /* Visual separation between incomplete and completed tasks */
+  .completedtable {
+    margin-top: 1rem;
+    border-top: 1px solid var(--muted-border-color);
+    padding-top: 0.5rem;
+  }
+
+  /* Ensure tables are visually distinct but aligned */
+  .tasktable tbody tr, .completedtable tbody tr {
+    border-spacing: 0;
+  }
+
+
 </style>
 
 <body>
@@ -99,6 +177,8 @@
     <ul>
       <li><a href="/">Home</a></li>
       <li><a href="/manage?list_id={{selected_list}}">Manage</a></li>
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/meal-plan">Meal Plan</a></li>
       <li><a href="/about">About</a></li>
     </ul>
     <nav>
@@ -173,17 +253,19 @@
                   hx-post="/task/{{task.id}}" 
                   checked
                 >
-                  {{ task.text }}
-                </td>
-                <td>
-                  <button 
-                    class="outline secondary small-button"
-                    hx-delete="/task/{{task.id}}" 
-                  >
-                  🗑️
-                  </button>
-                </td>
-              </tr>
+              </td>
+              <td>
+                {{ task.text }}
+              </td>
+              <td>
+                <button 
+                  class="outline secondary small-button"
+                  hx-delete="/task/{{task.id}}" 
+                >
+                🗑️
+                </button>
+              </td>
+            </tr>
           {% endif %}
         {% endfor %}
       </tbody>

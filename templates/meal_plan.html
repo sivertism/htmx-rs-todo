@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="htmx-config" content='{"useTemplateFragments":"true"}'>
+  <title>Meal Plan</title>
+
+  <!-- HTMX Import -->
+  <script src="./vendor/htmx.js"></script>
+  <link rel="stylesheet" href="./vendor/pico.min.css" >
+</head>
+
+<style>
+  .week-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    gap: 1rem;
+  }
+
+  .week-title {
+    text-align: center;
+    flex: 1;
+    margin: 0;
+  }
+
+  .day-card {
+    border: 1px solid var(--muted-border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--muted-border-color);
+    padding-bottom: 0.5rem;
+  }
+
+  .day-name {
+    font-weight: bold;
+    color: var(--primary);
+  }
+
+  .day-date {
+    font-size: 0.9rem;
+    color: var(--muted-color);
+  }
+
+  .meal-list {
+    min-height: 50px;
+  }
+
+  .meal-item {
+    background: var(--card-background-color);
+    border: 1px solid var(--muted-border-color);
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .meal-text {
+    flex: 1;
+  }
+
+  .meal-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .meal-actions button {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 0.25rem;
+  }
+
+  .meal-actions button:hover {
+    background: var(--secondary-hover);
+  }
+
+  .add-meal-btn {
+    width: 100%;
+    font-size: 0.9rem;
+    padding: 0.5rem;
+    background: var(--card-background-color);
+    border: 1px dashed var(--muted-border-color);
+    color: var(--muted-color);
+  }
+
+  .add-meal-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .empty-day {
+    text-align: center;
+    color: var(--muted-color);
+    font-style: italic;
+    padding: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .meal-plan-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+  }
+</style>
+
+<body>
+  <header class="container">
+    <nav>
+    <ul>
+      <li>HTMX + Rust + SQLite = crappy todo app</li>
+    </ul>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/manage">Manage</a></li>
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/meal-plan">Meal Plan</a></li>
+      <li><a href="/about">About</a></li>
+    </ul>
+    <nav>
+  </header>
+
+  <main class="container">
+    <div class="week-navigation">
+      <a href="/meal-plan?week={{ prev_week }}" role="button" class="outline">← Previous Week</a>
+      
+      <h1 class="week-title">
+        Week of {{ start_date }}
+      </h1>
+      
+      <a href="/meal-plan?week={{ next_week }}" role="button" class="outline">Next Week →</a>
+    </div>
+
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+      <a href="/meal-plan/{{ start_date }}/add-ingredients" role="button">📝 Add Week's Ingredients to Todo List</a>
+    </div>
+
+    <div class="meal-plan-grid">
+      {% for day in week_days %}
+        <div class="day-card">
+          <div class="day-header">
+            <div>
+              <div class="day-name">{{ day.day_name }}</div>
+              <div class="day-date">{{ day.date }}</div>
+            </div>
+          </div>
+          
+          <div class="meal-list">
+            {% if day.meals.is_empty() %}
+              <div class="empty-day">No meals planned</div>
+            {% else %}
+              {% for meal in day.meals %}
+                <div class="meal-item">
+                  <div class="meal-text">
+                    {% if meal.recipe_id.is_some() %}
+                      <a href="/recipes/{{ meal.recipe_id.unwrap() }}">{{ meal.meal_text }}</a>
+                    {% else %}
+                      {{ meal.meal_text }}
+                    {% endif %}
+                  </div>
+                  <div class="meal-actions">
+                    <form action="/meal-plan/{{ meal.id }}/delete" method="post" style="display: inline;">
+                      <button type="submit" onclick="return confirm('Remove this meal?')" title="Remove meal">🗑️</button>
+                    </form>
+                  </div>
+                </div>
+              {% endfor %}
+            {% endif %}
+          </div>
+          
+          <a 
+            href="/meal-plan/{{ day.date }}/add" 
+            class="add-meal-btn" 
+            role="button"
+          >
+            + Add Meal
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="htmx-config" content='{"useTemplateFragments":"true"}'>
+  <title>{% if is_edit %}Edit Recipe{% else %}New Recipe{% endif %}</title>
+
+  <!-- HTMX Import -->
+  <script src="../vendor/htmx.js"></script>
+  <link rel="stylesheet" href="../vendor/pico.min.css" >
+</head>
+
+<style>
+  .form-section {
+    margin-bottom: 1.5rem;
+  }
+  
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+  
+  .form-actions button, .form-actions a {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  #instructions {
+    min-height: 150px;
+  }
+
+  #ingredients {
+    min-height: 120px;
+  }
+
+  .help-text {
+    font-size: 0.9rem;
+    color: var(--muted-color);
+    margin-top: 0.25rem;
+  }
+
+  .back-link {
+    margin-bottom: 1rem;
+    display: inline-block;
+  }
+
+  @media (max-width: 767px) {
+    .form-actions {
+      flex-direction: column;
+    }
+    
+    .form-actions button, .form-actions a {
+      flex: none;
+    }
+  }
+</style>
+
+<body>
+  <header class="container">
+    <nav>
+    <ul>
+      <li>HTMX + Rust + SQLite = crappy todo app</li>
+    </ul>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/manage">Manage</a></li>
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/meal-plan">Meal Plan</a></li>
+      <li><a href="/about">About</a></li>
+    </ul>
+    <nav>
+  </header>
+
+  <main class="container">
+    {% if is_edit %}
+      <a href="/recipes/{{ recipe.as_ref().unwrap().id }}" class="back-link">← Back to Recipe</a>
+    {% else %}
+      <a href="/recipes" class="back-link">← Back to Recipes</a>
+    {% endif %}
+
+    <h1>{% if is_edit %}Edit Recipe{% else %}New Recipe{% endif %}</h1>
+
+    <form method="post" enctype="multipart/form-data">
+      <div class="form-section">
+        <label for="title">Recipe Title *</label>
+        <input 
+          type="text" 
+          id="title" 
+          name="title" 
+          required 
+          value="{% if is_edit %}{{ recipe.as_ref().unwrap().title }}{% endif %}"
+          placeholder="Enter recipe title"
+        >
+      </div>
+
+      <div class="form-section">
+        <label for="ingredients">Ingredients</label>
+        <textarea 
+          id="ingredients" 
+          name="ingredients" 
+          placeholder="Enter ingredients, one per line"
+        >{% if is_edit %}{{ recipe.as_ref().unwrap().ingredients }}{% endif %}</textarea>
+        <div class="help-text">Enter each ingredient on a separate line</div>
+      </div>
+
+      <div class="form-section">
+        <label for="instructions">Instructions</label>
+        <textarea 
+          id="instructions" 
+          name="instructions" 
+          placeholder="Enter cooking instructions"
+        >{% if is_edit %}{{ recipe.as_ref().unwrap().instructions }}{% endif %}</textarea>
+        <div class="help-text">URLs will automatically become clickable links</div>
+      </div>
+
+      {% if !is_edit %}
+      <div class="form-section">
+        <label for="photos">Add Photos</label>
+        <input 
+          type="file" 
+          id="photos" 
+          name="photos" 
+          accept="image/*"
+          multiple
+          onchange="this.form.submit()"
+        >
+        <div class="help-text">Upload up to 10 photos (JPEG, PNG, WebP). Max 10MB per file.</div>
+      </div>
+      {% endif %}
+
+      <div class="form-actions">
+        <button type="submit">{% if is_edit %}Update Recipe{% else %}Create Recipe{% endif %}</button>
+        {% if is_edit %}
+          <a href="/recipes/{{ recipe.as_ref().unwrap().id }}" role="button" class="outline secondary">Cancel</a>
+        {% else %}
+          <a href="/recipes" role="button" class="outline secondary">Cancel</a>
+        {% endif %}
+      </div>
+    </form>
+  </main>
+</body>
+</html>

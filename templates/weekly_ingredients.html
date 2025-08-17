@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="htmx-config" content='{"useTemplateFragments":"true"}'>
+  <title>Add Week's Ingredients to Todo List</title>
+
+  <!-- HTMX Import -->
+  <script src="../../vendor/htmx.js"></script>
+  <link rel="stylesheet" href="../../vendor/pico.min.css" >
+</head>
+
+<style>
+  .ingredient-list {
+    background: var(--card-background-color);
+    border: 1px solid var(--muted-border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .ingredient-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s ease;
+  }
+
+  .ingredient-item:hover {
+    background: var(--muted-border-color);
+  }
+
+  .ingredient-item label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    cursor: pointer;
+    flex: 1;
+  }
+
+  .ingredient-item input[type="checkbox"] {
+    margin: 0;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .form-actions button, .form-actions a {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .back-link {
+    margin-bottom: 1rem;
+    display: inline-block;
+  }
+
+  .list-select {
+    margin-bottom: 1.5rem;
+  }
+
+  .week-info {
+    background: var(--card-background-color);
+    border: 1px solid var(--muted-border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .select-all-btn {
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .no-ingredients {
+    text-align: center;
+    color: var(--muted-color);
+    padding: 2rem;
+    font-style: italic;
+  }
+
+  @media (max-width: 767px) {
+    .form-actions {
+      flex-direction: column;
+    }
+    
+    .form-actions button, .form-actions a {
+      flex: none;
+    }
+  }
+</style>
+
+<body>
+  <header class="container">
+    <nav>
+    <ul>
+      <li>HTMX + Rust + SQLite = crappy todo app</li>
+    </ul>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/manage">Manage</a></li>
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/meal-plan">Meal Plan</a></li>
+      <li><a href="/about">About</a></li>
+    </ul>
+    <nav>
+  </header>
+
+  <main class="container">
+    <a href="/meal-plan" class="back-link">← Back to Meal Plan</a>
+    
+    <h1>Add Week's Ingredients to Todo List</h1>
+
+    <div class="week-info">
+      <h3>📅 Week of {{ start_date }}</h3>
+      <p>This will add ingredients from all recipes planned for this week to your selected todo list.</p>
+    </div>
+
+    {% if ingredients.is_empty() %}
+      <div class="no-ingredients">
+        <h3>No Recipe Ingredients Found</h3>
+        <p>This week doesn't have any recipes with ingredients to add to your todo list.</p>
+        <p>Try adding some recipes to your meal plan first!</p>
+      </div>
+      
+      <div class="form-actions">
+        <a href="/meal-plan" role="button">Back to Meal Plan</a>
+        <a href="/recipes" role="button" class="outline">Browse Recipes</a>
+      </div>
+    {% else %}
+      <form method="post">
+        <div class="list-select">
+          <label for="list_id">Select Todo List *</label>
+          <select id="list_id" name="list_id" required>
+            <option value="">Choose a list...</option>
+            {% for list in lists %}
+              <option value="{{ list.id }}">{{ list.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="ingredient-list">
+          <h3>Select Ingredients to Add ({{ ingredients.len() }} total)</h3>
+          <button type="button" class="outline secondary select-all-btn" onclick="toggleAllIngredients()">Select All / Deselect All</button>
+          
+          {% for ingredient in ingredients %}
+            <div class="ingredient-item">
+              <label>
+                <input type="checkbox" name="ingredients" value="{{ ingredient }}" checked>
+                <span>{{ ingredient }}</span>
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="form-actions">
+          <button type="submit">📝 Add Selected Ingredients</button>
+          <a href="/meal-plan" role="button" class="outline secondary">Cancel</a>
+        </div>
+      </form>
+    {% endif %}
+  </main>
+
+  <script>
+    function toggleAllIngredients() {
+      const checkboxes = document.querySelectorAll('input[name="ingredients"]');
+      const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+      
+      checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+      });
+    }
+  </script>
+</body>
+</html>

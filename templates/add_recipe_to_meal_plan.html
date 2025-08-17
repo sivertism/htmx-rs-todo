@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="htmx-config" content='{"useTemplateFragments":"true"}'>
+  <title>Add {{ recipe.title }} to Meal Plan</title>
+
+  <!-- HTMX Import -->
+  <script src="../../vendor/htmx.js"></script>
+  <link rel="stylesheet" href="../../vendor/pico.min.css" >
+</head>
+
+<style>
+  .recipe-preview {
+    background: var(--card-background-color);
+    border: 1px solid var(--muted-border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .date-select {
+    margin-bottom: 1.5rem;
+  }
+
+  .meal-text-input {
+    margin-bottom: 1.5rem;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .form-actions button, .form-actions a {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .back-link {
+    margin-bottom: 1rem;
+    display: inline-block;
+  }
+
+  .help-text {
+    color: var(--muted-color);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+  }
+
+  .day-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .day-button {
+    padding: 0.5rem;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid var(--muted-border-color);
+    border-radius: 0.25rem;
+    background: var(--card-background-color);
+    transition: all 0.2s ease;
+  }
+
+  .day-button:hover {
+    background: var(--primary);
+    color: white;
+  }
+
+  .day-button.selected {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  @media (max-width: 767px) {
+    .form-actions {
+      flex-direction: column;
+    }
+    
+    .form-actions button, .form-actions a {
+      flex: none;
+    }
+
+    .day-buttons {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<body>
+  <header class="container">
+    <nav>
+    <ul>
+      <li>HTMX + Rust + SQLite = crappy todo app</li>
+    </ul>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/manage">Manage</a></li>
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/meal-plan">Meal Plan</a></li>
+      <li><a href="/about">About</a></li>
+    </ul>
+    <nav>
+  </header>
+
+  <main class="container">
+    <a href="/recipes/{{ recipe.id }}" class="back-link">← Back to Recipe</a>
+    
+    <h1>Add "{{ recipe.title }}" to Meal Plan</h1>
+
+    <div class="recipe-preview">
+      <h3>{{ recipe.title }}</h3>
+      {% if !recipe.ingredients.is_empty() %}
+        <p><strong>Ingredients:</strong></p>
+        <ul>
+          {% for ingredient in recipe.ingredients.split('\n') %}
+            {% if !ingredient.trim().is_empty() %}
+              <li>{{ ingredient.trim() }}</li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+
+    <form method="post" id="meal-plan-form">
+      <div class="date-select">
+        <label for="date">Select Date *</label>
+        <div class="help-text">Choose when you want to have this meal</div>
+        
+        <!-- Quick day selection buttons -->
+        <div class="day-buttons" id="day-buttons">
+          <!-- Will be populated by JavaScript -->
+        </div>
+        
+        <!-- Date input as fallback/precise selection -->
+        <input type="date" id="date" name="date" required>
+      </div>
+
+      <div class="meal-text-input">
+        <label for="meal_text">Meal Description (optional)</label>
+        <input type="text" id="meal_text" name="meal_text" placeholder="{{ recipe.title }}" value="{{ recipe.title }}">
+        <div class="help-text">Leave blank to use recipe title, or customize the meal description</div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit">Add to Meal Plan</button>
+        <a href="/recipes/{{ recipe.id }}" role="button" class="outline secondary">Cancel</a>
+      </div>
+    </form>
+  </main>
+
+  <script>
+    // Set up quick day selection
+    (function() {
+      const dateInput = document.getElementById('date');
+      const dayButtonsContainer = document.getElementById('day-buttons');
+      const today = new Date();
+      
+      // Generate next 7 days
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        const dayButton = document.createElement('div');
+        dayButton.className = 'day-button';
+        dayButton.textContent = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : 
+                               date.toLocaleDateString('en-US', { weekday: 'short' });
+        
+        const dateString = date.toISOString().split('T')[0];
+        dayButton.setAttribute('data-date', dateString);
+        
+        dayButton.addEventListener('click', function() {
+          // Update date input
+          dateInput.value = dateString;
+          
+          // Update button styles
+          document.querySelectorAll('.day-button').forEach(btn => btn.classList.remove('selected'));
+          dayButton.classList.add('selected');
+        });
+        
+        // Select today by default
+        if (i === 0) {
+          dayButton.classList.add('selected');
+          dateInput.value = dateString;
+        }
+        
+        dayButtonsContainer.appendChild(dayButton);
+      }
+      
+      // Update button selection when date input changes
+      dateInput.addEventListener('change', function() {
+        const selectedDate = dateInput.value;
+        document.querySelectorAll('.day-button').forEach(btn => {
+          if (btn.getAttribute('data-date') === selectedDate) {
+            btn.classList.add('selected');
+          } else {
+            btn.classList.remove('selected');
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

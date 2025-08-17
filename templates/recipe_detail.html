@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="htmx-config" content='{"useTemplateFragments":"true"}'>
+  <title>{{ recipe.title }}</title>
+
+  <!-- HTMX Import -->
+  <script src="../vendor/htmx.js"></script>
+  <link rel="stylesheet" href="../vendor/pico.min.css" >
+</head>
+
+<style>
+  .recipe-header {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--muted-border-color);
+    padding-bottom: 1rem;
+  }
+
+  .recipe-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .recipe-actions button, .recipe-actions a {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .recipe-photo {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .photo-carousel {
+    position: relative;
+    width: 100%;
+    margin-bottom: 2rem;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--card-background-color);
+  }
+
+  .carousel-container {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    overflow: hidden;
+  }
+
+  .carousel-track {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.3s ease;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  .carousel-slide {
+    flex: 0 0 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .carousel-slide img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 0.5rem;
+  }
+
+  .carousel-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    z-index: 10;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+  }
+
+  .carousel-nav:hover {
+    opacity: 1;
+  }
+
+  .carousel-nav.prev {
+    left: 10px;
+  }
+
+  .carousel-nav.next {
+    right: 10px;
+  }
+
+  .carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  .carousel-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted-color);
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .carousel-dot.active {
+    background: var(--primary);
+    transform: scale(1.2);
+  }
+
+  .photo-count {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    z-index: 10;
+  }
+
+  .photo-actions-overlay {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    z-index: 10;
+  }
+
+  .delete-photo-btn {
+    background: rgba(220, 38, 38, 0.8);
+    border: none;
+    border-radius: 20px;
+    color: white;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  .delete-photo-btn:hover {
+    background: rgba(220, 38, 38, 1);
+  }
+
+  @media (max-width: 768px) {
+    .carousel-nav {
+      display: none; /* Hide navigation arrows on mobile, use swipe instead */
+    }
+    
+    .carousel-container {
+      height: 250px;
+    }
+  }
+
+  .photo-upload-section {
+    background: var(--card-background-color);
+    border: 1px solid var(--muted-border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .photo-upload-section h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+  }
+
+  .upload-form {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: end;
+  }
+
+  .upload-form input[type="file"] {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .upload-form button {
+    padding: 0.5rem 1rem;
+    white-space: nowrap;
+  }
+
+  .photo-item {
+    position: relative;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--card-background-color);
+    border: 1px solid var(--muted-border-color);
+  }
+
+  .photo-actions {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.8));
+    padding: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .photo-name {
+    color: white;
+    font-size: 0.8rem;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    margin-right: 0.5rem;
+  }
+
+  .photo-delete-btn {
+    background: rgba(220, 38, 38, 0.8);
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s ease;
+  }
+
+  .photo-delete-btn:hover {
+    background: rgba(220, 38, 38, 1);
+  }
+
+  .single-upload {
+    margin-bottom: 1rem;
+  }
+
+  .upload-instructions {
+    color: var(--muted-color);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    font-style: italic;
+  }
+
+  .upload-field {
+    margin-bottom: 1rem;
+  }
+
+  .upload-field label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+
+  .multiple-upload {
+    margin-top: 1rem;
+    border-top: 1px solid var(--muted-border-color);
+    padding-top: 1rem;
+  }
+
+  .multiple-upload summary {
+    cursor: pointer;
+    color: var(--muted-color);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+
+  .multiple-upload[open] summary {
+    margin-bottom: 1rem;
+  }
+
+  .recipe-section {
+    margin-bottom: 2rem;
+  }
+
+  .recipe-section h3 {
+    margin-bottom: 1rem;
+    color: var(--primary);
+  }
+
+  .ingredients-list {
+    background: var(--card-background-color);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--muted-border-color);
+  }
+
+  .ingredients-list p {
+    margin: 0.25rem 0;
+  }
+
+  .instructions-content {
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  .instructions-content a {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  .back-link {
+    margin-bottom: 1rem;
+    display: inline-block;
+  }
+
+  @media (min-width: 768px) {
+    .recipe-header {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+  }
+</style>
+
+<body>
+  <header class="container">
+    <nav>
+    <ul>
+      <li>HTMX + Rust + SQLite = crappy todo app</li>
+    </ul>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/manage">Manage</a></li>
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/meal-plan">Meal Plan</a></li>
+      <li><a href="/about">About</a></li>
+    </ul>
+    <nav>
+  </header>
+
+  <main class="container">
+    <a href="/recipes" class="back-link">← Back to Recipes</a>
+    
+    <div class="recipe-header">
+      <div>
+        <h1>{{ recipe.title }}</h1>
+      </div>
+      
+      <div class="recipe-actions">
+        <a href="/recipes/{{ recipe.id }}/edit" role="button" class="outline">Edit Recipe</a>
+        <a href="/recipes/{{ recipe.id }}/add-to-list" role="button" class="outline secondary">+ Add to List</a>
+        <a href="/recipes/{{ recipe.id }}/add-to-meal-plan" role="button" class="outline">+ Add to Meal Plan</a>
+        <button 
+          hx-post="/recipes/{{ recipe.id }}/delete" 
+          hx-confirm="Are you sure you want to delete this recipe?"
+          class="outline secondary"
+        >
+          Delete Recipe
+        </button>
+      </div>
+    </div>
+
+    {% if !photos.is_empty() %}
+      <div class="recipe-section">
+        <h3>Photos</h3>
+        <div class="photo-carousel" id="photo-carousel">
+          <div class="carousel-container">
+            <div class="carousel-track" id="carousel-track">
+              {% for photo in photos %}
+                <div class="carousel-slide">
+                  <img src="/photos/{{ photo.filename }}" alt="{{ photo.original_name }}" loading="lazy">
+                  <div class="photo-actions-overlay">
+                    <form action="/recipes/{{ recipe.id }}/photos/{{ photo.id }}/delete" method="post" style="display: inline;">
+                      <button type="submit" class="delete-photo-btn" onclick="return confirm('Delete this photo?')">Delete</button>
+                    </form>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+            
+            {% if photos.len() > 1 %}
+              <button class="carousel-nav prev" id="prev-btn">‹</button>
+              <button class="carousel-nav next" id="next-btn">›</button>
+              <div class="photo-count">
+                <span id="current-photo">1</span> / {{ photos.len() }}
+              </div>
+            {% endif %}
+          </div>
+          
+          {% if photos.len() > 1 %}
+            <div class="carousel-dots" id="carousel-dots">
+              {% for photo in photos %}
+                <div class="carousel-dot {% if loop.first %}active{% endif %}" data-slide="{{ loop.index0 }}"></div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if photos.len() < 10 %}
+    <div class="photo-upload-section">
+      <h3>{% if photos.is_empty() %}Add Photos{% else %}Add More Photos{% endif %}</h3>
+      <p class="upload-instructions">Take photos one at a time for best results on mobile devices.</p>
+      
+      <form action="/recipes/{{ recipe.id }}/upload-photos" method="post" enctype="multipart/form-data" class="upload-form single-upload" id="photo-upload-form">
+        <div class="upload-field">
+          <label for="single-photo">Add Photo:</label>
+          <input type="file" id="single-photo" name="photos" accept="image/*" capture="environment" onchange="this.form.submit()">
+          <div class="help-text">Take a photo or choose from gallery - uploads automatically</div>
+        </div>
+      </form>
+      
+      <details class="multiple-upload">
+        <summary>Or upload multiple photos at once</summary>
+        <form action="/recipes/{{ recipe.id }}/upload-photos" method="post" enctype="multipart/form-data" class="upload-form">
+          <div class="upload-field">
+            <input type="file" name="photos" accept="image/*" multiple onchange="this.form.submit()">
+            <div class="help-text">Upload up to {{ 10 - photos.len() }} more photos - uploads automatically</div>
+          </div>
+        </form>
+      </details>
+    </div>
+    {% endif %}
+
+    {% if !recipe.ingredients.is_empty() %}
+      <div class="recipe-section">
+        <h3>Ingredients</h3>
+        <div class="ingredients-list">
+          {% for ingredient in recipe.ingredients.split('\n') %}
+            {% if !ingredient.trim().is_empty() %}
+              <p>• {{ ingredient.trim() }}</p>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if !recipe.instructions.is_empty() %}
+      <div class="recipe-section">
+        <h3>Instructions</h3>
+        <div class="instructions-content">{{ recipe.instructions }}</div>
+      </div>
+    {% endif %}
+  </main>
+
+  <script>
+    // Photo carousel functionality
+    (function() {
+      const carousel = document.getElementById('photo-carousel');
+      if (!carousel) return;
+
+      const track = document.getElementById('carousel-track');
+      const slides = track.querySelectorAll('.carousel-slide');
+      const prevBtn = document.getElementById('prev-btn');
+      const nextBtn = document.getElementById('next-btn');
+      const dots = document.querySelectorAll('.carousel-dot');
+      const currentPhotoSpan = document.getElementById('current-photo');
+      
+      let currentSlide = 0;
+      const totalSlides = slides.length;
+
+      if (totalSlides <= 1) return; // No need for carousel functionality
+
+      function updateCarousel() {
+        const translateX = -currentSlide * 100;
+        track.style.transform = `translateX(${translateX}%)`;
+        
+        // Update dots
+        dots.forEach((dot, index) => {
+          dot.classList.toggle('active', index === currentSlide);
+        });
+        
+        // Update counter
+        if (currentPhotoSpan) {
+          currentPhotoSpan.textContent = currentSlide + 1;
+        }
+      }
+
+      function nextSlide() {
+        currentSlide = (currentSlide + 1) % totalSlides;
+        updateCarousel();
+      }
+
+      function prevSlide() {
+        currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+        updateCarousel();
+      }
+
+      function goToSlide(index) {
+        currentSlide = index;
+        updateCarousel();
+      }
+
+      // Navigation buttons
+      if (nextBtn) nextBtn.addEventListener('click', nextSlide);
+      if (prevBtn) prevBtn.addEventListener('click', prevSlide);
+
+      // Dot navigation
+      dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => goToSlide(index));
+      });
+
+      // Touch/swipe support
+      let startX = 0;
+      let currentX = 0;
+      let isDragging = false;
+
+      function handleTouchStart(e) {
+        startX = e.touches ? e.touches[0].clientX : e.clientX;
+        isDragging = true;
+        track.style.transition = 'none';
+      }
+
+      function handleTouchMove(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        
+        currentX = e.touches ? e.touches[0].clientX : e.clientX;
+        const diffX = startX - currentX;
+        const translateX = -currentSlide * 100 - (diffX / track.offsetWidth) * 100;
+        track.style.transform = `translateX(${translateX}%)`;
+      }
+
+      function handleTouchEnd() {
+        if (!isDragging) return;
+        isDragging = false;
+        track.style.transition = 'transform 0.3s ease';
+        
+        const diffX = startX - currentX;
+        const threshold = track.offsetWidth / 4; // 25% of width to trigger slide change
+        
+        if (Math.abs(diffX) > threshold) {
+          if (diffX > 0) {
+            nextSlide();
+          } else {
+            prevSlide();
+          }
+        } else {
+          updateCarousel(); // Snap back to current slide
+        }
+      }
+
+      // Add touch events
+      track.addEventListener('touchstart', handleTouchStart, { passive: false });
+      track.addEventListener('touchmove', handleTouchMove, { passive: false });
+      track.addEventListener('touchend', handleTouchEnd);
+
+      // Add mouse events for desktop dragging
+      track.addEventListener('mousedown', handleTouchStart);
+      track.addEventListener('mousemove', handleTouchMove);
+      track.addEventListener('mouseup', handleTouchEnd);
+      track.addEventListener('mouseleave', handleTouchEnd);
+
+      // Prevent default drag behavior on images
+      slides.forEach(slide => {
+        const img = slide.querySelector('img');
+        if (img) {
+          img.addEventListener('dragstart', e => e.preventDefault());
+        }
+      });
+
+      // Keyboard navigation
+      document.addEventListener('keydown', (e) => {
+        if (!carousel.matches(':hover')) return;
+        
+        if (e.key === 'ArrowLeft') {
+          prevSlide();
+        } else if (e.key === 'ArrowRight') {
+          nextSlide();
+        }
+      });
+
+    })();
+  </script>
+</body>
+</html>

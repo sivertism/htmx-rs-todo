@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="htmx-config" content='{"useTemplateFragments":"true"}'>
+  <title>Recipes</title>
+
+  <!-- HTMX Import -->
+  <script src="./vendor/htmx.js"></script>
+  <link rel="stylesheet" href="./vendor/pico.min.css" >
+</head>
+
+<style>
+  .recipe-card {
+    border: 1px solid var(--muted-border-color);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    margin-bottom: 1rem;
+    transition: box-shadow 0.2s ease;
+    background: var(--card-background-color);
+  }
+
+  .recipe-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .recipe-thumbnail {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .recipe-card-content {
+    padding: 1rem;
+  }
+
+  .recipe-title {
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    position: relative;
+  }
+
+  .recipe-title a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .recipe-title a:hover {
+    color: var(--primary);
+  }
+
+  .recipe-ingredients {
+    color: var(--muted-color);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+  }
+
+  .recipe-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .recipe-actions button, .recipe-actions a {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.6rem;
+  }
+
+  .recipe-overlay {
+    position: relative;
+    display: block;
+    color: white;
+    text-decoration: none;
+  }
+
+  .recipe-overlay-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    padding: 2rem 1rem 1rem;
+    color: white;
+  }
+
+  .recipe-overlay-title {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin: 0;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+
+  .no-photo-placeholder {
+    width: 100%;
+    height: 200px;
+    background: var(--muted-border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-color);
+    font-size: 0.9rem;
+  }
+
+  .new-recipe-btn {
+    margin-bottom: 1rem;
+    width: 100%;
+  }
+
+  @media (min-width: 768px) {
+    .recipe-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+    
+    .new-recipe-btn {
+      width: auto;
+    }
+  }
+</style>
+
+<body>
+  <header class="container">
+    <nav>
+    <ul>
+      <li>HTMX + Rust + SQLite = crappy todo app</li>
+    </ul>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/manage">Manage</a></li>
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/meal-plan">Meal Plan</a></li>
+      <li><a href="/about">About</a></li>
+    </ul>
+    <nav>
+  </header>
+
+  <main class="container">
+    <h1>Recipes</h1>
+    
+    <a href="/recipes/new" class="new-recipe-btn" role="button">+ New Recipe</a>
+    
+    {% if recipes.is_empty() %}
+      <article>
+        <p>No recipes yet. <a href="/recipes/new">Create your first recipe</a> to get started!</p>
+      </article>
+    {% else %}
+      <div class="recipe-grid">
+        {% for recipe_with_photo in recipes %}
+          <div class="recipe-card">
+            <a href="/recipes/{{ recipe_with_photo.recipe.id }}" class="recipe-overlay">
+              {% if recipe_with_photo.first_photo.is_some() %}
+                <img src="/photos/{{ recipe_with_photo.first_photo.as_ref().unwrap().filename }}" 
+                     alt="{{ recipe_with_photo.recipe.title }}" 
+                     class="recipe-thumbnail">
+              {% else %}
+                <img src="/photos/default-recipe.svg" 
+                     alt="Default recipe image" 
+                     class="recipe-thumbnail">
+              {% endif %}
+              <div class="recipe-overlay-content">
+                <h3 class="recipe-overlay-title">{{ recipe_with_photo.recipe.title }}</h3>
+              </div>
+            </a>
+            <div class="recipe-card-content">
+              <div class="recipe-actions">
+                <a href="/recipes/{{ recipe_with_photo.recipe.id }}/add-to-list" role="button" class="outline secondary">+ Add to List</a>
+                <a href="/recipes/{{ recipe_with_photo.recipe.id }}/add-to-meal-plan" role="button" class="outline">+ Add to Meal Plan</a>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </main>
+</body>
+</html>

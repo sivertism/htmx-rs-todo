@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="htmx-config" content='{"useTemplateFragments":"true"}'>
+  <title>Add Meal</title>
+
+  <!-- HTMX Import -->
+  <script src="../vendor/htmx.js"></script>
+  <link rel="stylesheet" href="../vendor/pico.min.css" >
+</head>
+
+<style>
+  .form-section {
+    margin-bottom: 1.5rem;
+  }
+  
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+  
+  .form-actions button, .form-actions a {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .back-link {
+    margin-bottom: 1rem;
+    display: inline-block;
+  }
+
+  .recipe-redirect {
+    background: var(--card-background-color);
+    border: 1px solid var(--muted-border-color);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+
+  .recipe-redirect h3 {
+    margin-bottom: 1rem;
+    color: var(--primary);
+  }
+
+  .recipe-redirect p {
+    margin-bottom: 1rem;
+    color: var(--muted-color);
+  }
+
+  .or-divider {
+    text-align: center;
+    margin: 2rem 0;
+    position: relative;
+    color: var(--muted-color);
+  }
+
+  .or-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--muted-border-color);
+    z-index: 1;
+  }
+
+  .or-divider span {
+    background: var(--background-color);
+    padding: 0 1rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  @media (max-width: 767px) {
+    .form-actions {
+      flex-direction: column;
+    }
+    
+    .form-actions button, .form-actions a {
+      flex: none;
+    }
+  }
+</style>
+
+<body>
+  <header class="container">
+    <nav>
+    <ul>
+      <li>HTMX + Rust + SQLite = crappy todo app</li>
+    </ul>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/manage">Manage</a></li>
+      <li><a href="/recipes">Recipes</a></li>
+      <li><a href="/meal-plan">Meal Plan</a></li>
+      <li><a href="/about">About</a></li>
+    </ul>
+    <nav>
+  </header>
+
+  <main class="container">
+    <a href="/meal-plan" class="back-link">← Back to Meal Plan</a>
+
+    <h1>Add Meal for {{ date }}</h1>
+
+    <!-- Recipe redirect option -->
+    <div class="recipe-redirect">
+      <h3>Add from Recipe</h3>
+      <p>Browse your recipe collection and use the "Add to Meal Plan" button on any recipe.</p>
+      <a href="/recipes" role="button">Browse Recipes</a>
+    </div>
+
+    <div class="or-divider">
+      <span>OR</span>
+    </div>
+
+    <!-- Simple custom meal form -->
+    <form method="post">
+      <div class="form-section">
+        <label for="meal_text">Custom Meal Description:</label>
+        <input 
+          type="text" 
+          id="meal_text" 
+          name="meal_text"
+          placeholder="e.g., Leftover pizza, Takeout from Joe's, etc."
+          required
+        >
+        <small>Add a free-form meal description for this day</small>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit">Add Custom Meal</button>
+        <a href="/meal-plan" role="button" class="outline secondary">Cancel</a>
+      </div>
+    </form>
+  </main>
+</body>
+</html>
