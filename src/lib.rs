@@ -4,7 +4,7 @@ pub mod template;
 pub mod todo;
 
 use axum::{
-    extract::{Path, Query, State, Json, Multipart, DefaultBodyLimit},
+    extract::{Path, Query, State, Json, Multipart, DefaultBodyLimit, RawForm},
     http::{StatusCode, HeaderMap},
     response::{IntoResponse, Response, Html, Redirect},
     routing::{delete, get, post},
@@ -495,7 +495,7 @@ async fn recipe_to_list_form(
 async fn add_recipe_to_list(
     State(state): State<AppState>,
     Path(id): Path<u32>,
-    form: Form<RecipeToListForm>,
+    RawForm(body): RawForm,
 ) -> impl IntoResponse {
     // Get recipe to validate it exists
     let _recipe = match state.db.get_recipe(id as usize).await {
@@ -503,12 +503,39 @@ async fn add_recipe_to_list(
         Err(_) => return StatusCode::NOT_FOUND.into_response()
     };
     
+    // Parse form data manually to handle multiple checkbox values
+    let form_data = std::str::from_utf8(&body).unwrap_or("");
+    let mut params = Vec::new();
+    
+    for pair in form_data.split('&') {
+        if let Some((key, value)) = pair.split_once('=') {
+            // Simple URL decode for + and %20 (space)
+            let value = value.replace('+', " ").replace("%20", " ");
+            params.push((key.to_string(), value));
+        }
+    }
+    
+    let mut list_id = 0;
+    let mut ingredients = Vec::new();
+    
+    for (key, value) in params {
+        match key.as_str() {
+            "list_id" => {
+                list_id = value.parse().unwrap_or(0);
+            }
+            "ingredients" => {
+                ingredients.push(value);
+            }
+            _ => {}
+        }
+    }
+    
     // Add each selected ingredient as a task
-    for ingredient in &form.ingredients {
+    for ingredient in &ingredients {
         if !ingredient.trim().is_empty() {
             let _ = state.db.create_task(
                 ingredient.trim().to_string(),
-                form.list_id
+                list_id
             ).await;
         }
     }
@@ -710,14 +737,41 @@ async fn weekly_ingredients_form(
 async fn add_weekly_ingredients(
     State(state): State<AppState>,
     Path(_start_date): Path<String>,
-    form: Form<WeeklyIngredientsForm>,
+    RawForm(body): RawForm,
 ) -> impl IntoResponse {
+    // Parse form data manually to handle multiple checkbox values
+    let form_data = std::str::from_utf8(&body).unwrap_or("");
+    let mut params = Vec::new();
+    
+    for pair in form_data.split('&') {
+        if let Some((key, value)) = pair.split_once('=') {
+            // Simple URL decode for + and %20 (space)
+            let value = value.replace('+', " ").replace("%20", " ");
+            params.push((key.to_string(), value));
+        }
+    }
+    
+    let mut list_id = 0;
+    let mut ingredients = Vec::new();
+    
+    for (key, value) in params {
+        match key.as_str() {
+            "list_id" => {
+                list_id = value.parse().unwrap_or(0);
+            }
+            "ingredients" => {
+                ingredients.push(value);
+            }
+            _ => {}
+        }
+    }
+    
     // Add each selected ingredient as a task
-    for ingredient in &form.ingredients {
+    for ingredient in &ingredients {
         if !ingredient.trim().is_empty() {
             let _ = state.db.create_task(
                 ingredient.trim().to_string(),
-                form.list_id
+                list_id
             ).await;
         }
     }

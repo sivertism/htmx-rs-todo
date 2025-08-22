@@ -89,6 +89,7 @@ pub struct RecipeWithPhoto {
 #[derive(Deserialize)]
 pub struct RecipeToListForm {
     pub list_id: usize,
+    #[serde(default)]
     pub ingredients: Vec<String>,
 }
 
@@ -103,6 +104,7 @@ pub struct RecipeToMealPlanForm {
 #[derive(Deserialize)]
 pub struct WeeklyIngredientsForm {
     pub list_id: usize,
+    #[serde(default)]
     pub ingredients: Vec<String>,
 }
 
