@@ -5,6 +5,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use tower::util::ServiceExt;
+use image::{ImageFormat, RgbImage};
 
 #[tokio::test]
 async fn test_photo_upload_integration() {
@@ -23,12 +24,16 @@ async fn test_photo_upload_integration() {
 
     // Step 1: Create a test recipe
     println!("Creating test recipe...");
-    let create_recipe_body = "title=Test%20Recipe&instructions=Test%20instructions&ingredients=Test%20ingredients";
+    let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+    let multipart_body = format!(
+        "--{}\r\nContent-Disposition: form-data; name=\"title\"\r\n\r\nTest Recipe\r\n--{}\r\nContent-Disposition: form-data; name=\"instructions\"\r\n\r\nTest instructions\r\n--{}\r\nContent-Disposition: form-data; name=\"ingredients\"\r\n\r\nTest ingredients\r\n--{}--\r\n",
+        boundary, boundary, boundary, boundary
+    );
     let request = Request::builder()
         .method("POST")
         .uri("/recipes/new")
-        .header("content-type", "application/x-www-form-urlencoded")
-        .body(Body::from(create_recipe_body))
+        .header("content-type", &format!("multipart/form-data; boundary={}", boundary))
+        .body(Body::from(multipart_body))
         .unwrap();
 
     let response = app.clone().oneshot(request).await.unwrap();
@@ -46,16 +51,19 @@ async fn test_photo_upload_integration() {
 
     // Step 3: Create multipart form data for photo upload
     let boundary = "----test-boundary-12345";
-    let multipart_body = format!(
-        "--{boundary}\r\n\
-        Content-Disposition: form-data; name=\"photos\"; filename=\"test.png\"\r\n\
-        Content-Type: image/png\r\n\
-        \r\n\
-        {image_data}\r\n\
-        --{boundary}--\r\n",
-        boundary = boundary,
-        image_data = String::from_utf8_lossy(&test_image_data)
-    );
+    let mut multipart_body = Vec::new();
+    
+    // Add multipart headers
+    multipart_body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+    multipart_body.extend_from_slice(b"Content-Disposition: form-data; name=\"photos\"; filename=\"test.png\"\r\n");
+    multipart_body.extend_from_slice(b"Content-Type: image/png\r\n");
+    multipart_body.extend_from_slice(b"\r\n");
+    
+    // Add binary data
+    multipart_body.extend_from_slice(&test_image_data);
+    
+    // Add multipart footer
+    multipart_body.extend_from_slice(format!("\r\n--{}--\r\n", boundary).as_bytes());
 
     // Step 4: Upload the photo
     println!("Uploading photo...");
@@ -87,6 +95,7 @@ async fn test_photo_upload_integration() {
     println!("Photo saved: filename={}, size={}", photo.filename, photo.file_size);
     assert_eq!(photo.original_name, "test.png");
     assert_eq!(photo.mime_type, "image/png");
+    
     assert!(photo.thumbnail_blob.is_some(), "Thumbnail should have been generated");
 
     // Step 6: Verify photo file exists on disk
@@ -147,24 +156,20 @@ async fn test_photo_upload_integration() {
 }
 
 fn create_test_png() -> Vec<u8> {
-    // Create a minimal valid PNG (1x1 pixel, red)
-    // PNG signature + IHDR + IDAT + IEND chunks
-    vec![
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-        0x00, 0x00, 0x00, 0x0D, // IHDR length
-        0x49, 0x48, 0x44, 0x52, // IHDR
-        0x00, 0x00, 0x00, 0x01, // width = 1
-        0x00, 0x00, 0x00, 0x01, // height = 1
-        0x08, 0x02, 0x00, 0x00, 0x00, // bit depth=8, color type=2 (RGB), compression=0, filter=0, interlace=0
-        0x90, 0x77, 0x53, 0xDE, // IHDR CRC
-        0x00, 0x00, 0x00, 0x0C, // IDAT length
-        0x49, 0x44, 0x41, 0x54, // IDAT
-        0x78, 0x9C, 0x62, 0xF8, 0x0F, 0x00, 0x01, 0x01, 0x01, 0x00, 0x18, 0xDD, // compressed RGB pixel data
-        0x8D, 0xB4, 0x1C, // IDAT CRC
-        0x00, 0x00, 0x00, 0x00, // IEND length
-        0x49, 0x45, 0x4E, 0x44, // IEND
-        0xAE, 0x42, 0x60, 0x82, // IEND CRC
-    ]
+    // Create a valid 2x2 PNG using the image crate
+    use image::{RgbImage, ImageFormat};
+    
+    let mut img = RgbImage::new(2, 2);
+    // Fill with red pixels
+    for pixel in img.pixels_mut() {
+        *pixel = image::Rgb([255, 0, 0]);
+    }
+    
+    let mut buffer = Vec::new();
+    img.write_to(&mut std::io::Cursor::new(&mut buffer), ImageFormat::Png)
+        .expect("Failed to create test PNG");
+    
+    buffer
 }
 
 #[tokio::test]
@@ -180,12 +185,16 @@ async fn test_default_photo_fallback() {
     let app = create_app(state.clone());
 
     // Create recipe without photo
-    let create_recipe_body = "title=No%20Photo%20Recipe&instructions=Test&ingredients=Test";
+    let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+    let multipart_body = format!(
+        "--{}\r\nContent-Disposition: form-data; name=\"title\"\r\n\r\nNo Photo Recipe\r\n--{}\r\nContent-Disposition: form-data; name=\"instructions\"\r\n\r\nTest\r\n--{}\r\nContent-Disposition: form-data; name=\"ingredients\"\r\n\r\nTest\r\n--{}--\r\n",
+        boundary, boundary, boundary, boundary
+    );
     let request = Request::builder()
         .method("POST")
         .uri("/recipes/new")
-        .header("content-type", "application/x-www-form-urlencoded")
-        .body(Body::from(create_recipe_body))
+        .header("content-type", &format!("multipart/form-data; boundary={}", boundary))
+        .body(Body::from(multipart_body))
         .unwrap();
 
     let response = app.clone().oneshot(request).await.unwrap();

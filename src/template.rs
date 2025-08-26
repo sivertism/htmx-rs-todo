@@ -97,6 +97,7 @@ pub struct MealPlanTemplate {
 #[template(path = "add_meal_form.html")]
 pub struct AddMealFormTemplate {
     pub date: String,
+    pub recipes: Vec<Recipe>,
 }
 
 #[derive(Template)]

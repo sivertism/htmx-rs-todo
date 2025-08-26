@@ -235,3 +235,41 @@ async fn setup_test_server_with_recipe_and_list() -> (TestServer, TempDir) {
     
     (server, temp_dir)
 }
+
+#[tokio::test]
+async fn test_default_photo_appears_in_recipes_page() {
+    let (server, _temp_dir) = setup_test_server().await;
+    
+    // Create a recipe without photo
+    let form = MultipartForm::new()
+        .add_text("title", "Recipe Without Photo")
+        .add_text("ingredients", "Test ingredients")
+        .add_text("instructions", "Test instructions");
+    
+    let response = server
+        .post("/recipes/new")
+        .multipart(form)
+        .await;
+    
+    response.assert_status_see_other();
+    
+    // Check recipes page shows default image reference
+    let response = server.get("/recipes").await;
+    response.assert_status_ok();
+    response.assert_text_contains("Recipe Without Photo");
+    response.assert_text_contains("default-recipe.svg");
+}
+
+#[tokio::test]
+async fn test_default_photo_endpoint_works() {
+    let (server, _temp_dir) = setup_test_server().await;
+    
+    // Test that default photo endpoint returns SVG
+    let response = server.get("/photos/default-recipe.svg").await;
+    response.assert_status_ok();
+    
+    // Check content type is SVG
+    let headers = response.headers();
+    let content_type = headers.get("content-type").unwrap().to_str().unwrap();
+    assert_eq!(content_type, "image/svg+xml");
+}

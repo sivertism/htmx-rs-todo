@@ -158,7 +158,7 @@ async fn delete_list(State(state): State<AppState>, Path(id): Path<u32>) -> impl
     // Need to use HX-Redirect to force redirect when using HTMX
     let mut headers = HeaderMap::new();
     headers.insert("HX-Redirect", "/manage".parse().unwrap());
-    (headers, "").into_response()
+    (StatusCode::SEE_OTHER, headers, "").into_response()
 }
 
 async fn toggle_task(
@@ -648,13 +648,25 @@ async fn meal_plan_page(Query(params): Query<WeekQuery>, State(state): State<App
 }
 
 async fn add_meal_form(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(date): Path<String>,
 ) -> impl IntoResponse {
-    let template = AddMealFormTemplate { 
-        date
-    };
-    HtmlTemplate(template).into_response()
+    match state.db.get_recipes().await {
+        Ok(recipes) => {
+            let template = AddMealFormTemplate { 
+                date,
+                recipes
+            };
+            HtmlTemplate(template).into_response()
+        }
+        Err(_) => {
+            let template = AddMealFormTemplate { 
+                date,
+                recipes: vec![]
+            };
+            HtmlTemplate(template).into_response()
+        }
+    }
 }
 
 async fn add_meal(
@@ -682,7 +694,7 @@ async fn delete_meal(
         Ok(_) => {
             let mut headers = HeaderMap::new();
             headers.insert("HX-Redirect", "/meal-plan".parse().unwrap());
-            (headers, "").into_response()
+            (StatusCode::SEE_OTHER, headers, "").into_response()
         }
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
@@ -781,11 +793,15 @@ async fn add_weekly_ingredients(
 
 // Photo handling utilities
 fn generate_thumbnail(image_data: &[u8], max_size: u32) -> anyhow::Result<Vec<u8>> {
-    let img = image::load_from_memory(image_data)?;
+    use anyhow::Context;
+    
+    let img = image::load_from_memory(image_data)
+        .context("Failed to load image from memory")?;
     let thumbnail = img.thumbnail(max_size, max_size);
     
     let mut buffer = Vec::new();
-    thumbnail.write_to(&mut std::io::Cursor::new(&mut buffer), ImageFormat::Jpeg)?;
+    thumbnail.write_to(&mut std::io::Cursor::new(&mut buffer), ImageFormat::Jpeg)
+        .context("Failed to write thumbnail to buffer")?;
     Ok(buffer)
 }
 
@@ -937,12 +953,16 @@ async fn upload_photos_unified(
                 info!("Unified photo saved to disk successfully");
                 
                 // Generate thumbnail
-                let thumbnail = generate_thumbnail(&data, 200).ok();
-                if thumbnail.is_some() {
-                    info!("Thumbnail generated successfully");
-                } else {
-                    warn!("Failed to generate thumbnail");
-                }
+                let thumbnail = match generate_thumbnail(&data, 200) {
+                    Ok(thumb_data) => {
+                        info!("Thumbnail generated successfully, size: {} bytes", thumb_data.len());
+                        Some(thumb_data)
+                    }
+                    Err(e) => {
+                        warn!("Failed to generate thumbnail: {}", e);
+                        None
+                    }
+                };
                 
                 // Get next order
                 let upload_order = state.db.get_next_photo_order(recipe_id).await.unwrap_or(0);

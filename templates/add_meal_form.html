@@ -122,20 +122,40 @@
 
     <!-- Simple custom meal form -->
     <form method="post">
+      {% if !recipes.is_empty() %}
+      <div class="form-section">
+        <label for="recipe_id">Select a Recipe:</label>
+        <select name="recipe_id" id="recipe_id">
+          <option value="">-- Choose a recipe --</option>
+          {% for recipe in recipes %}
+          <option value="{{ recipe.id }}">{{ recipe.title }}</option>
+          {% endfor %}
+        </select>
+        <small>Select from your existing recipes</small>
+      </div>
+
+      <div class="or-divider">
+        <span>OR</span>
+      </div>
+      {% else %}
+      <div class="form-section">
+        <p><em>No recipes available</em></p>
+      </div>
+      {% endif %}
+
       <div class="form-section">
         <label for="meal_text">Custom Meal Description:</label>
-        <input 
-          type="text" 
+        <textarea 
           id="meal_text" 
           name="meal_text"
           placeholder="e.g., Leftover pizza, Takeout from Joe's, etc."
-          required
-        >
+          rows="2"
+        ></textarea>
         <small>Add a free-form meal description for this day</small>
       </div>
 
       <div class="form-actions">
-        <button type="submit">Add Custom Meal</button>
+        <button type="submit">Add Meal</button>
         <a href="/meal-plan" role="button" class="outline secondary">Cancel</a>
       </div>
     </form>

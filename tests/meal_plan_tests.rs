@@ -1,7 +1,6 @@
-use axum_test::TestServer;
+use axum_test::{TestServer, multipart::MultipartForm};
 use tempfile::TempDir;
 use chrono::{Utc, Datelike, Duration, NaiveDate};
-use axum_test::http::StatusCode;
 
 mod common;
 use common::*;
@@ -70,7 +69,7 @@ async fn test_add_meal_form_loads() {
     
     response.assert_status_ok();
     response.assert_text_contains("Add Meal for");
-    response.assert_text_contains("From Recipe");
+    response.assert_text_contains("Add from Recipe");
     response.assert_text_contains("Custom Meal");
     response.assert_text_contains("No recipes available");
 }
@@ -85,7 +84,7 @@ async fn test_add_meal_form_with_recipes() {
     response.assert_status_ok();
     response.assert_text_contains("Add Meal for");
     response.assert_text_contains("Test Recipe");
-    response.assert_text_contains("Select a Recipe");
+    response.assert_text_contains("Choose a recipe");
 }
 
 #[tokio::test]
@@ -96,8 +95,7 @@ async fn test_add_custom_meal() {
     let response = server
         .post(&format!("/meal-plan/{}/add", today))
         .form(&serde_json::json!({
-            "meal_text": "Leftover pizza",
-            "recipe_id": ""
+            "meal_text": "Leftover pizza"
         }))
         .await;
     
@@ -161,8 +159,7 @@ async fn test_multiple_meals_per_day() {
         let _ = server
             .post(&format!("/meal-plan/{}/add", today))
             .form(&serde_json::json!({
-                "meal_text": meal,
-                "recipe_id": ""
+                "meal_text": meal
             }))
             .await;
     }
@@ -195,8 +192,7 @@ async fn test_meal_plan_different_weeks() {
     let response = server
         .post(&format!("/meal-plan/{}/add", today.format("%Y-%m-%d")))
         .form(&serde_json::json!({
-            "meal_text": "Today's Meal",
-            "recipe_id": ""
+            "meal_text": "Today's Meal"
         }))
         .await;
     response.assert_status_see_other();
@@ -206,8 +202,7 @@ async fn test_meal_plan_different_weeks() {
     let response = server
         .post(&format!("/meal-plan/{}/add", next_week_day.format("%Y-%m-%d")))
         .form(&serde_json::json!({
-            "meal_text": "Next Week's Meal",
-            "recipe_id": ""
+            "meal_text": "Next Week's Meal"
         }))
         .await;
     response.assert_status_see_other();
@@ -215,17 +210,17 @@ async fn test_meal_plan_different_weeks() {
     // Check current week shows only current week's meal
     let response = server.get("/meal-plan").await;
     response.assert_status_ok();
-    response.assert_text_contains("Today's Meal");
+    response.assert_text_contains("Today&#x27;s Meal");
     let body = response.text();
-    assert!(!body.contains("Next Week's Meal"));
+    assert!(!body.contains("Next Week&#x27;s Meal"));
     
     // Check next week shows only next week's meal
     let next_week_start = get_week_start(next_week_day);
     let response = server.get(&format!("/meal-plan?week={}", next_week_start.format("%Y-%m-%d"))).await;
     response.assert_status_ok();
-    response.assert_text_contains("Next Week's Meal");
+    response.assert_text_contains("Next Week&#x27;s Meal");
     let body = response.text();
-    assert!(!body.contains("Today's Meal"));
+    assert!(!body.contains("Today&#x27;s Meal"));
 }
 
 #[tokio::test]
@@ -275,14 +270,18 @@ async fn setup_test_server_with_recipe() -> (TestServer, TempDir) {
     let (server, temp_dir) = setup_test_server().await;
     
     // Create a test recipe
-    let _ = server
+    let form = MultipartForm::new()
+        .add_text("title", "Test Recipe")
+        .add_text("ingredients", "1 cup flour\n2 eggs")
+        .add_text("instructions", "Mix and bake.");
+    
+    let response = server
         .post("/recipes/new")
-        .form(&serde_json::json!({
-            "title": "Test Recipe",
-            "ingredients": "1 cup flour\n2 eggs",
-            "instructions": "Mix and bake."
-        }))
+        .multipart(form)
         .await;
+    
+    // Verify recipe was created successfully
+    response.assert_status_see_other();
     
     (server, temp_dir)
 }
