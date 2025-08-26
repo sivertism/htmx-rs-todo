@@ -1,5 +1,4 @@
 pub mod database;
-pub mod grocy;
 pub mod template;
 pub mod todo;
 
@@ -12,7 +11,6 @@ use axum::{
 };
 use futures::stream::once;
 use std::convert::Infallible;
-use grocy::*;
 use database::Database;
 use reqwest::header;
 use serde::Deserialize;
@@ -101,32 +99,6 @@ async fn index(list_query: Query<ListQuery>, State(state): State<AppState>) -> i
 
     let lists = state.db.get_lists().await.expect("Get list options");
 
-    // 1. Get Grocy credentials for the list if they exist
-    if let Some(gc) = state.db.get_grocy_credentials(selected_list as usize).await {
-        info!("Got credentials for {}", gc.url);
-
-        // 2. Get Grocy shopping list items
-        match grocy::get_shopping_list_items(&gc).await {
-            Ok(items) => {
-                info!("Got {} items from Grocy", items.len());
-                for item in items.into_iter() {
-                    let name = get_product_name(item.product_id, &gc).await.expect("Failed to get product name");
-                    let quantity_unit = get_quantity_unit(item.quantity_unit_id, &gc).await.expect("Failed to get quantity unit");
-                    let task = format!("{} {} {}", name, item.amount, quantity_unit);
-                    info!("Consuming task '{}' from Grocy", &task);
-                    
-                    // 3. Create task from grocy
-                    if let Ok(_id) = state.db.create_task(task, selected_list as usize).await {
-                        // 4. Delete from Grocy
-                        delete_shopping_list_item(item.id, &gc).await.expect("Failed to delete");
-                    } else {
-                      warn!("Failed to create task from Grocy shopping list item"); 
-                    }
-                }
-        },
-            Err(err) => {warn!("Failed to get shopping list items: {}", err);}
-        }
-    }
 
     info!("Getting tasks for list_id={}", selected_list);
     if let Ok(tasks) = state.db.get_tasks(selected_list as usize).await {
@@ -207,27 +179,13 @@ async fn create_task(
 async fn create_list(State(state): State<AppState>, form: Form<ListForm>) -> Response {
     let name = form.name.clone();
 
-    let grocy_credentials = match (form.grocy_url.clone(), form.grocy_api_key.clone()) {
-        (Some(url), Some(api_key)) => Some(GrocyCredentials{url, api_key}),
-        (Some(_url), None) => {
-            warn!("Grocy URL provided, but no API key.");
-            None
-            },
-        (None, Some(_api_key)) => {
-            warn!("Grocy API key provided, but no URL");
-            None
-            },
-        (None, None) => None
-    };
-
-    if let Ok(id) = state.db.create_list(name.clone(), grocy_credentials.as_ref()).await.context("Create list") {
+    if let Ok(id) = state.db.create_list(name.clone()).await.context("Create list") {
         info!("List item with id {} created", id);
         return Html(format!(r#"<option class="select-list" value="?list_id={id}">{name}</option>"#)).into_response();
     } else {
         warn!("Failed to create list");
         return StatusCode::BAD_REQUEST.into_response();
     }
-
 }
 
 async fn manage(list_query: Query<ListQuery>, State(state): State<AppState>) -> impl IntoResponse {

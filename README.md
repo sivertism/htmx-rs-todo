@@ -8,7 +8,6 @@ A full-stack Rust web application implementing todo/task management, recipe mana
 - **Recipe Management**: Create recipes with photos, ingredients, and instructions
 - **Meal Planning**: Weekly meal planning with recipe integration
 - **Photo Upload**: Multi-photo upload with automatic thumbnail generation
-- **Grocy Integration**: Optional integration with Grocy inventory management
 
 ## Tech Stack
 

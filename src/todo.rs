@@ -28,8 +28,6 @@ pub struct TaskForm {
 #[derive(Deserialize)]
 pub struct ListForm {
     pub name: String,
-    pub grocy_url: Option<String>,
-    pub grocy_api_key: Option<String>,
 }
 
 #[allow(dead_code)]

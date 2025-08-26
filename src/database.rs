@@ -3,7 +3,6 @@ use anyhow::Context;
 use tokio_rusqlite::Connection;
 use crate::todo::{Task, List, Recipe, MealPlanEntry, RecipePhoto};
 use tracing::{info, warn};
-use crate::grocy::*;
 
 #[derive(Clone)]
 pub struct Database {
@@ -120,27 +119,6 @@ impl Database {
             .context("Failed to get tasks")?)
     }
 
-    pub async fn get_grocy_credentials(&self, list_id: usize) -> Option<GrocyCredentials> {
-        if let Ok(res) = self.connection
-            .call(move |conn| {
-                let res = conn.query_row(
-                    "SELECT url, api_key FROM grocy_credentials WHERE list_id=(:list_id)",
-                    &[(":list_id", &list_id)],
-                    |row| {
-                        Ok(GrocyCredentials {
-                            url: row.get(0).expect("Failed to get row value, corrupt database?"),
-                            api_key: row.get(1).expect("Failed to get row value, corrupt database?"),
-                        })
-                    },
-                )?;
-                Ok(res)
-            })
-            .await 
-        {
-            return Some(res);
-        }
-        return None;
-    }
 
     pub async fn create_task(
         &self,
@@ -207,7 +185,6 @@ impl Database {
     pub async fn create_list(
         &self,
         name: String,
-        grocy_credentials: Option<&GrocyCredentials>,
         ) -> anyhow::Result<usize> {
         let id = self
             .connection
@@ -224,32 +201,6 @@ impl Database {
             })
             .await
             .context("Create list on db.")?;
-        if let Some(gc) = grocy_credentials {
-            if gc.url != "" && gc.api_key != "" {
-            let gc = gc.clone();
-            info!("Inserting Grocy credentials for {}", gc.url);
-            self
-                .connection
-                .call(move |conn| {
-                    // Create the grocy credentials
-                    match conn.execute(
-                        "INSERT INTO grocy_credentials (url, api_key, list_id) values (?1, ?2, ?3)",
-                        rusqlite::params![&gc.url, &gc.api_key, &id],
-                    ) {
-                        Ok(_) => {
-                            info!("Grocy credentials stored for list {}", id);
-                        }
-                        Err(err) => {
-                            warn!("Failed to store Grocy credentials: {}", err);
-                            return Err(err.into());
-                        }
-                    }
-                    Ok(())
-                })
-                .await
-                .context("Store Grocy credentials.")?;
-            }
-        }
         Ok(id)
     }
 

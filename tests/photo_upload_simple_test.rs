@@ -167,7 +167,7 @@ async fn test_default_photo_fallback() {
     std::thread::sleep(std::time::Duration::from_secs(3));
 
     // Create a recipe without photo
-    let _output = Command::new("curl")
+    let create_output = Command::new("curl")
         .args(&[
             "-X", "POST",
             "-F", "title=No Photo Recipe",
@@ -177,6 +177,14 @@ async fn test_default_photo_fallback() {
         ])
         .output()
         .expect("Failed to create recipe");
+    
+    println!("Recipe creation result: {}", create_output.status);
+    if !create_output.stdout.is_empty() {
+        println!("Recipe creation stdout: {}", String::from_utf8_lossy(&create_output.stdout));
+    }
+    if !create_output.stderr.is_empty() {
+        println!("Recipe creation stderr: {}", String::from_utf8_lossy(&create_output.stderr));
+    }
 
     // Check recipes page shows default image
     let recipes_output = Command::new("curl")
@@ -189,6 +197,13 @@ async fn test_default_photo_fallback() {
 
     println!("📊 Default photo test:");
     println!("  - Shows default photo: {}", has_default_photo);
+    
+    // Debug: Print a snippet of the recipes page
+    if recipes_html.len() > 500 {
+        println!("  - Recipes page snippet: ...{}", &recipes_html[recipes_html.len()-500..]);
+    } else {
+        println!("  - Recipes page content: {}", recipes_html);
+    }
 
     // Test default photo endpoint
     let default_output = Command::new("curl")

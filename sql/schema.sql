@@ -18,24 +18,6 @@ CREATE TABLE IF NOT EXISTS tasks (
   ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS grocy_credentials (
-  id INTEGER PRIMARY KEY,
-  url TEXT NOT NULL,
-  api_key TEXT NOT NULL,
-  created TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') ),
-  list_id INTEGER, 
-  FOREIGN KEY(list_id) REFERENCES lists(id)
-  ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS grocy_tasks_mapping (
-  id INTEGER PRIMARY KEY,
-  grocy_id INTEGER NOT NULL,
-  created TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S:%s', 'now', 'localtime') ),
-  list_id INTEGER, 
-  FOREIGN KEY(list_id) REFERENCES tasks(id)
-  ON DELETE CASCADE
-);
 
 CREATE TRIGGER if not exists update_tasks_modified
 BEFORE UPDATE

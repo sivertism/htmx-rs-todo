@@ -11,7 +11,7 @@ The most important feature is the todo app.
 
 ## Project Overview
 
-This is a full-stack Rust web application implementing a Todo/Task management system with Recipe management and Meal planning features, plus optional Grocy integration. It uses HTMX for dynamic frontend interactions without heavy JavaScript frameworks.
+This is a full-stack Rust web application implementing a Todo/Task management system with Recipe management and Meal planning features. It uses HTMX for dynamic frontend interactions without heavy JavaScript frameworks.
 
 **Tech Stack**: Rust + Axum + SQLite + HTMX + PicoCSS + Askama templates + Chrono
 
@@ -51,7 +51,6 @@ cargo run -- --port 8080 --address 0.0.0.0 --data-dir ./data
 - `src/lib.rs` - Main application logic and route handlers (Axum)
 - `src/database.rs` - SQLite database operations and migrations
 - `src/todo.rs` - Core data structures (Task, List, Recipe, MealPlanEntry, forms)
-- `src/grocy.rs` - External Grocy API integration
 - `src/template.rs` - Askama template definitions
 
 **Frontend Pattern:**
@@ -62,7 +61,7 @@ cargo run -- --port 8080 --address 0.0.0.0 --data-dir ./data
 
 **Database:**
 - SQLite schema in `sql/schema.sql`
-- Tables: `lists`, `tasks`, `grocy_credentials`, `grocy_tasks_mapping`, `recipes`, `meal_plan`, `recipe_photos`
+- Tables: `lists`, `tasks`, `recipes`, `meal_plan`, `recipe_photos`
 - Auto-migration handled in database.rs
 - Photo storage: Files on disk + metadata/thumbnails in `recipe_photos` table
 
@@ -88,7 +87,6 @@ cargo run -- --port 8080 --address 0.0.0.0 --data-dir ./data
 - Frontend assets are vendored and gzipped in `vendor/` directory
 - Comprehensive testing with integration tests (axum_test) and E2E tests (Playwright)
 - Application uses async/await throughout with Tokio runtime
-- Grocy integration is optional and configurable per todo list
 - Task ordering maintained via integer `position` field with reordering logic
 - Recipe and meal planning features are free-form and mobile-first
 - **Photo Management:**
