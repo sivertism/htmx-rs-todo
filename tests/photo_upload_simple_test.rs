@@ -159,12 +159,28 @@ async fn test_default_photo_fallback() {
 
     // Start the application
     let mut app_process = Command::new("cargo")
-        .args(&["run", "--", "--port", "3004", "--address", "127.0.0.1", "--data-dir"])
+        .args(&["run", "--", "--port", "3006", "--address", "127.0.0.1", "--data-dir"])
         .arg(&data_dir)
         .spawn()
         .expect("Failed to start application");
 
-    std::thread::sleep(std::time::Duration::from_secs(3));
+    std::thread::sleep(std::time::Duration::from_secs(5));
+
+    // Check if the app started successfully by trying to connect
+    let ping_output = Command::new("curl")
+        .args(&["-s", "-o", "/dev/null", "-w", "%{http_code}", "http://127.0.0.1:3006/"])
+        .output()
+        .expect("Failed to ping application");
+    
+    let ping_status = String::from_utf8_lossy(&ping_output.stdout);
+    println!("App ping status: {}", ping_status);
+    
+    if ping_status != "200" {
+        // App didn't start properly, check what went wrong
+        println!("Application failed to start properly (ping returned: {})", ping_status);
+        app_process.kill().unwrap();
+        panic!("Application failed to start properly (ping returned: {})", ping_status);
+    }
 
     // Create a recipe without photo
     let create_output = Command::new("curl")
@@ -173,7 +189,7 @@ async fn test_default_photo_fallback() {
             "-F", "title=No Photo Recipe",
             "-F", "instructions=This recipe has no photo",
             "-F", "ingredients=None",
-            "http://127.0.0.1:3004/recipes/new"
+            "http://127.0.0.1:3006/recipes/new"
         ])
         .output()
         .expect("Failed to create recipe");
@@ -188,7 +204,7 @@ async fn test_default_photo_fallback() {
 
     // Check recipes page shows default image
     let recipes_output = Command::new("curl")
-        .args(&["-s", "http://127.0.0.1:3004/recipes"])
+        .args(&["-s", "http://127.0.0.1:3006/recipes"])
         .output()
         .expect("Failed to fetch recipes page");
 
@@ -207,7 +223,7 @@ async fn test_default_photo_fallback() {
 
     // Test default photo endpoint
     let default_output = Command::new("curl")
-        .args(&["-I", "http://127.0.0.1:3004/photos/default-recipe.svg"])
+        .args(&["-I", "http://127.0.0.1:3006/photos/default-recipe.svg"])
         .output()
         .expect("Failed to test default photo");
 

@@ -1,0 +1,17 @@
+<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with PicoCSS compatible color -->
+  <rect width="400" height="300" fill="#64748b"/>
+  
+  <!-- Chef hat icon -->
+  <g transform="translate(200,150)">
+    <!-- Hat base -->
+    <ellipse cx="0" cy="10" rx="60" ry="20" fill="#f1f5f9"/>
+    <!-- Hat top -->
+    <circle cx="0" cy="-20" r="40" fill="#f1f5f9"/>
+    <!-- Hat fold -->
+    <path d="M -55 15 Q 0 25 55 15" stroke="#64748b" stroke-width="3" fill="none"/>
+  </g>
+  
+  <!-- Optional text -->
+  <text x="200" y="250" text-anchor="middle" fill="#f1f5f9" font-family="system-ui" font-size="14" opacity="0.8">No Photo</text>
+</svg>
