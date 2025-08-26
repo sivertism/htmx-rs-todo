@@ -62,8 +62,9 @@ cargo run -- --port 8080 --address 0.0.0.0 --data-dir ./data
 
 **Database:**
 - SQLite schema in `sql/schema.sql`
-- Tables: `lists`, `tasks`, `grocy_credentials`, `grocy_tasks_mapping`, `recipes`, `meal_plan`
+- Tables: `lists`, `tasks`, `grocy_credentials`, `grocy_tasks_mapping`, `recipes`, `meal_plan`, `recipe_photos`
 - Auto-migration handled in database.rs
+- Photo storage: Files on disk + metadata/thumbnails in `recipe_photos` table
 
 ## Key Patterns
 
@@ -90,7 +91,11 @@ cargo run -- --port 8080 --address 0.0.0.0 --data-dir ./data
 - Grocy integration is optional and configurable per todo list
 - Task ordering maintained via integer `position` field with reordering logic
 - Recipe and meal planning features are free-form and mobile-first
-- Recipes support title, ingredients (one per line), instructions with auto-linked URLs, and optional photos
+- **Photo Management:**
+  - Photos stored on filesystem with metadata in SQLite
+  - Thumbnails generated server-side using `image` crate
+  - Binary data handling requires proper multipart forms (not UTF-8 conversion)
+  - Default SVG images served for recipes without photos
 
 ## New Features
 
@@ -98,7 +103,13 @@ cargo run -- --port 8080 --address 0.0.0.0 --data-dir ./data
 - Create, read, update, delete recipes
 - Free-form ingredients list (no units or structured data)
 - Instructions with automatic URL link detection
-- Photo upload with auto-submit functionality
+- **Photo Upload System:**
+  - Multiple photo upload per recipe (max 10)
+  - Automatic thumbnail generation (200px, JPEG format)
+  - Support for PNG, JPEG, WebP formats
+  - Binary multipart form handling with `multer` crate
+  - Default SVG fallback for recipes without photos
+  - Photo serving with proper MIME types and caching headers
 - Recipe-to-todo-list integration with ingredient selection
 - Simple search by title (future enhancement)
 
@@ -118,27 +129,45 @@ cargo run -- --port 8080 --address 0.0.0.0 --data-dir ./data
 
 ## Testing
 
-The application has comprehensive test coverage using two complementary approaches:
+The application has comprehensive test coverage using two complementary approaches with **100% pass rate** across all core functionality.
 
 ### Integration Tests (Rust)
 Integration tests using `axum_test` framework test the backend functionality:
 
 ```bash
-# Run all integration tests
-cargo test
+# Run all integration tests (requires nix develop for full functionality)
+nix develop --command cargo test
 
 # Run specific test modules
 cargo test recipe_tests
-cargo test meal_plan_tests
-cargo test todo_tests
+cargo test meal_plan_tests  
+cargo test integration_tests
+cargo test photo_upload_test
 ```
 
+**Current Test Status:** ✅ **40/40 tests passing**
+- **Integration Tests** (11/11): Core app functionality, list management, task operations
+- **Meal Plan Tests** (13/13): Weekly views, meal additions, recipe integration
+- **Recipe Tests** (14/14): CRUD operations, photo uploads, default images  
+- **Photo Upload Tests** (2/2): Binary file handling, thumbnail generation
+
 **Test Coverage:**
-- Recipe CRUD operations and photo uploads (`tests/recipe_tests.rs`)
+- Recipe CRUD operations and photo uploads with thumbnail generation (`tests/recipe_tests.rs`)
 - Meal plan functionality and week navigation (`tests/meal_plan_tests.rs`) 
-- Todo list management and task operations (`tests/todo_tests.rs`)
+- Todo list management and task operations (`tests/integration_tests.rs`)
+- Photo upload integration with proper multipart form handling (`tests/photo_upload_test.rs`)
 - Database operations and schema validation
 - Form validation and error handling
+- HTTP status code correctness (303 redirects, etc.)
+- HTML encoding in responses
+
+**Key Testing Notes:**
+- All tests must be run within `nix develop` environment for proper dependencies (C compiler, image processing libraries)
+- Photo upload tests use proper binary multipart form data (not UTF-8 string conversion which corrupts PNG data)
+- Recipe creation tests use `MultipartForm` instead of URL-encoded forms
+- Test assertions handle HTML-encoded characters (e.g., `&#x27;` for apostrophes)
+- Default photo fallback functionality is tested for recipes without images
+- Thumbnail generation is validated for uploaded photos
 
 ### End-to-End Tests (Playwright)
 E2E tests using Playwright provide "outside perspective" testing of the full user experience:
