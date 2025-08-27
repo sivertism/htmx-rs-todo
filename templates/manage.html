@@ -15,21 +15,20 @@
   <header class="container">
     <nav>
     <ul>
-      <li>HTMX + Rust + SQLite = crappy todo app</li>
-    </ul>
-    <ul>
       <li><a href="/">Home</a></li>
       <li><button class="outline" hx-get="/manage" hx-target="#mainbody">Manage</button></li>
       <li><a href="/recipes">Recipes</a></li>
       <li><a href="/meal-plan">Meal Plan</a></li>
       <li><a href="/about">About</a></li>
     </ul>
-    <nav>
+    </nav>
   </header>
 
   <main class="container" id="mainbody">
 
-  <h1>Add new list</h1>
+  <h1>Manage Lists</h1>
+
+  <h2>Add new list</h2>
 
   <form id="create-list-form" 
      hx-post="/create_list" hx-swap="beforeend" hx-target="#select-list"
@@ -42,7 +41,7 @@
   <button type="submit">Submit</button>
   </form>
 
-  <h1>Modify</h1>
+  <h2>Modify</h2>
   <form>
     <div id="list_options">
     <label for="list_id">List</label>

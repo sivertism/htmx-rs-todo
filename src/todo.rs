@@ -1,6 +1,5 @@
 use serde::Deserialize;
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct Task {
     pub id: usize,
@@ -10,27 +9,22 @@ pub struct Task {
     pub position: Option<i32>,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct List {
     pub id: usize,
     pub name: String,
 }
 
-// Don't worry about this for now, will use later
-#[allow(dead_code)]
 #[derive(Deserialize)]
 pub struct TaskForm {
     pub text: String,
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize)]
 pub struct ListForm {
     pub name: String,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct Recipe {
     pub id: usize,
@@ -39,7 +33,6 @@ pub struct Recipe {
     pub ingredients: String,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct MealPlanEntry {
     pub id: usize,
@@ -48,7 +41,6 @@ pub struct MealPlanEntry {
     pub recipe_id: Option<usize>,
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize)]
 pub struct RecipeForm {
     pub title: String,
@@ -56,14 +48,12 @@ pub struct RecipeForm {
     pub ingredients: String,
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize)]
 pub struct MealForm {
     pub meal_text: String,
     pub recipe_id: Option<usize>,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct RecipePhoto {
     pub id: usize,
@@ -76,14 +66,12 @@ pub struct RecipePhoto {
     pub thumbnail_blob: Option<Vec<u8>>,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct RecipeWithPhoto {
     pub recipe: Recipe,
     pub first_photo: Option<RecipePhoto>,
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize)]
 pub struct RecipeToListForm {
     pub list_id: usize,
@@ -91,14 +79,12 @@ pub struct RecipeToListForm {
     pub ingredients: Vec<String>,
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize)]
 pub struct RecipeToMealPlanForm {
     pub date: String,
     pub meal_text: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize)]
 pub struct WeeklyIngredientsForm {
     pub list_id: usize,
@@ -106,7 +92,6 @@ pub struct WeeklyIngredientsForm {
     pub ingredients: Vec<String>,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct WeekDay {
     pub day_name: String,

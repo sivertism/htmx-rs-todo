@@ -341,16 +341,13 @@
   <header class="container">
     <nav>
     <ul>
-      <li>HTMX + Rust + SQLite = crappy todo app</li>
-    </ul>
-    <ul>
       <li><a href="/">Home</a></li>
       <li><a href="/manage">Manage</a></li>
       <li><a href="/recipes">Recipes</a></li>
       <li><a href="/meal-plan">Meal Plan</a></li>
       <li><a href="/about">About</a></li>
     </ul>
-    <nav>
+    </nav>
   </header>
 
   <main class="container">
@@ -454,7 +451,7 @@
     {% if !recipe.instructions.is_empty() %}
       <div class="recipe-section">
         <h3>Instructions</h3>
-        <div class="instructions-content">{{ recipe.instructions }}</div>
+        <div class="instructions-content">{{ recipe.instructions|autolink|safe }}</div>
       </div>
     {% endif %}
   </main>

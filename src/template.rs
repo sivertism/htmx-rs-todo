@@ -1,4 +1,4 @@
-use crate::todo::{List, Task, Recipe, MealPlanEntry, RecipePhoto, RecipeWithPhoto, WeekDay};
+use crate::todo::{List, Task, Recipe, RecipePhoto, RecipeWithPhoto, WeekDay};
 use askama::Template;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
@@ -119,4 +119,15 @@ pub struct WeeklyIngredientsTemplate {
     pub start_date: String,
     pub ingredients: Vec<String>,
     pub lists: Vec<List>,
+}
+
+// Custom filter for auto-linking URLs
+pub mod filters {
+    use regex::Regex;
+
+    pub fn autolink(text: &str) -> askama::Result<String> {
+        let url_regex = Regex::new(r"(https?://[^\s<>]+)").unwrap();
+        let result = url_regex.replace_all(text, r#"<a href="$1" target="_blank">$1</a>"#);
+        Ok(result.to_string())
+    }
 }

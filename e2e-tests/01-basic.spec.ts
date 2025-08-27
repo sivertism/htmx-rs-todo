@@ -10,7 +10,7 @@ test.describe('Basic App Functionality', () => {
     
     // Check navigation links
     await expect(page.locator('nav a[href="/"]')).toContainText('Home');
-    await expect(page.locator('nav a[href="/manage"]')).toContainText('Manage');
+    await expect(page.locator('nav a:has-text("Manage")')).toBeVisible();
     await expect(page.locator('nav a[href="/recipes"]')).toContainText('Recipes');
     await expect(page.locator('nav a[href="/meal-plan"]')).toContainText('Meal Plan');
   });
@@ -26,7 +26,7 @@ test.describe('Basic App Functionality', () => {
     // Navigate to meal plan
     await page.click('nav a[href="/meal-plan"]');
     await expect(page).toHaveURL('/meal-plan');
-    await expect(page.locator('h1')).toContainText('Meal Plan');
+    await expect(page.locator('h1')).toContainText('Week of');
     
     // Navigate to manage
     await page.click('nav a[href="/manage"]');
@@ -40,43 +40,52 @@ test.describe('Basic App Functionality', () => {
   test('can create and manage todo lists', async ({ page }) => {
     await page.goto('/manage');
     
-    // Create a new list
-    await page.fill('input[name="name"]', 'E2E Test List');
+    // Create a new list with timestamp to ensure uniqueness
+    const testListName = `E2E Test List ${Date.now()}`;
+    await page.fill('input[name="name"]', testListName);
     await page.click('button[type="submit"]');
     
-    // Verify list was created
-    await expect(page.locator('text=E2E Test List')).toBeVisible();
+    // Verify list was created by checking the dropdown
+    await expect(page.locator('select')).toContainText(testListName);
     
     // Navigate back to home and check list is available
     await page.goto('/');
-    await expect(page.locator('select')).toContainText('E2E Test List');
+    await expect(page.locator('select')).toContainText(testListName);
   });
 
   test('can create and toggle tasks', async ({ page }) => {
     await page.goto('/manage');
     
-    // Create a test list first
-    await page.fill('input[name="name"]', 'Task Test List');
+    // Create a test list first with timestamp for uniqueness
+    const testListName = `Task Test List ${Date.now()}`;
+    await page.fill('input[name="name"]', testListName);
     await page.click('button[type="submit"]');
+    
+    // Wait for list to be created
+    await page.waitForTimeout(500);
     
     // Go to home and select the list
     await page.goto('/');
-    await page.selectOption('select', { label: 'Task Test List' });
+    await page.selectOption('select', { label: testListName });
     
     // Create a task
-    await page.fill('input[placeholder="Add new task"]', 'E2E Test Task');
-    await page.click('button[type="submit"]');
+    const testTaskName = `E2E Test Task ${Date.now()}`;
+    await page.fill('input[placeholder="Add new task"]', testTaskName);
+    await page.press('input[placeholder="Add new task"]', 'Enter');
     
-    // Verify task was created
-    await expect(page.locator('text=E2E Test Task')).toBeVisible();
+    // Wait for task to be created and verify
+    await page.waitForTimeout(500);
+    await expect(page.locator('text=' + testTaskName)).toBeVisible();
     
     // Toggle task completion
     const checkbox = page.locator('input[type="checkbox"]').first();
     await checkbox.check();
+    await page.waitForTimeout(300);
     await expect(checkbox).toBeChecked();
     
     // Toggle back
     await checkbox.uncheck();
+    await page.waitForTimeout(300);
     await expect(checkbox).not.toBeChecked();
   });
 
@@ -91,11 +100,11 @@ test.describe('Basic App Functionality', () => {
     // Check recipe page on mobile
     await page.goto('/recipes');
     await expect(page.locator('h1')).toContainText('Recipes');
-    await expect(page.locator('a[role="button"]')).toContainText('+ New Recipe');
+    await expect(page.locator('a[role="button"].new-recipe-btn')).toContainText('+ New Recipe');
     
     // Check meal plan on mobile
     await page.goto('/meal-plan');
-    await expect(page.locator('h1')).toContainText('Meal Plan');
+    await expect(page.locator('h1')).toContainText('Week of');
     await expect(page.locator('.meal-plan-grid')).toBeVisible();
   });
 

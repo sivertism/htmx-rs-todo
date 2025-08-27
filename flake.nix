@@ -69,12 +69,9 @@
               openssl
               sqlite
               rustfmt
-              # Testing dependencies
+              # Testing dependencies - MINIMAL PLAYWRIGHT SETUP
               nodejs_20
-              playwright-driver
               chromium
-              # For Playwright browser automation
-              xvfb-run
             ];
             RUSTC_VERSION = overrides.toolchain.channel;
             # https://github.com/rust-lang/rust-bindgen#environment-variables
@@ -83,10 +80,10 @@
               export PATH=$PATH:''${CARGO_HOME:-~/.cargo}/bin
               export PATH=$PATH:''${RUSTUP_HOME:-~/.rustup}/toolchains/$RUSTC_VERSION-x86_64-unknown-linux-gnu/bin/
               
-              # Playwright setup
-              export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
+              # Minimal Playwright setup
+              export CHROME_BIN=${pkgs.chromium}/bin/chromium
               export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-              export DISPLAY=:99
+              export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
               
               # Initialize npm if needed for Playwright
               if [ ! -d "node_modules" ]; then
@@ -99,6 +96,7 @@
               echo "- Rust toolchain: $RUSTC_VERSION"
               echo "- Node.js version: $(node --version 2>/dev/null || echo 'not available')"
               echo "- Playwright available for E2E testing"
+              echo "- Chromium: ${pkgs.chromium}/bin/chromium"
               '';
             # Add precompiled library to rustc search path
             RUSTFLAGS = (builtins.map (a: ''-L ${a}/lib'') [

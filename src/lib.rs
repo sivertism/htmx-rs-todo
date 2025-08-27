@@ -17,9 +17,8 @@ use serde::Deserialize;
 use anyhow::Context;
 use template::*;
 use askama::Template;
-use todo::{ListForm, Task, TaskForm, RecipeForm, MealForm, RecipeToListForm, RecipeToMealPlanForm, WeeklyIngredientsForm, WeekDay};
+use todo::{ListForm, Task, TaskForm, RecipeForm, MealForm, RecipeToMealPlanForm, WeekDay};
 use tracing::{info, warn};
-use std::io::Write;
 use std::path::PathBuf;
 use uuid::Uuid;
 use image::ImageFormat;
@@ -76,9 +75,46 @@ pub fn create_app(state: AppState) -> axum::Router {
         .with_state(state)
 }
 
-// Handler functions moved from main.rs
-async fn index(list_query: Query<ListQuery>, State(state): State<AppState>) -> impl IntoResponse {
-    let selected_list = match list_query.list_id {
+#[derive(Debug)]
+struct CheckboxFormData {
+    list_id: usize,
+    ingredients: Vec<String>,
+}
+
+// Helper function to parse checkbox form data
+fn parse_checkbox_form(body: &[u8]) -> CheckboxFormData {
+    let form_data = std::str::from_utf8(body).unwrap_or("");
+    let mut params = Vec::new();
+    
+    for pair in form_data.split('&') {
+        if let Some((key, value)) = pair.split_once('=') {
+            // Simple URL decode for + and %20 (space)
+            let value = value.replace('+', " ").replace("%20", " ");
+            params.push((key.to_string(), value));
+        }
+    }
+    
+    let mut list_id = 0;
+    let mut ingredients = Vec::new();
+    
+    for (key, value) in params {
+        match key.as_str() {
+            "list_id" => {
+                list_id = value.parse().unwrap_or(0);
+            }
+            "ingredients" => {
+                ingredients.push(value);
+            }
+            _ => {}
+        }
+    }
+    
+    CheckboxFormData { list_id, ingredients }
+}
+
+// Helper function to determine the selected list
+async fn determine_selected_list(list_query: &ListQuery, state: &AppState) -> usize {
+    match list_query.list_id {
         Some(id) => id,
         None => {
             // Check if list 3 exists, otherwise use first available list
@@ -95,7 +131,12 @@ async fn index(list_query: Query<ListQuery>, State(state): State<AppState>) -> i
                 _ => 3, // Fallback if error
             }
         }
-    };
+    }
+}
+
+// Handler functions moved from main.rs
+async fn index(list_query: Query<ListQuery>, State(state): State<AppState>) -> impl IntoResponse {
+    let selected_list = determine_selected_list(&list_query, &state).await;
 
     let lists = state.db.get_lists().await.expect("Get list options");
 
@@ -189,24 +230,7 @@ async fn create_list(State(state): State<AppState>, form: Form<ListForm>) -> Res
 }
 
 async fn manage(list_query: Query<ListQuery>, State(state): State<AppState>) -> impl IntoResponse {
-    let selected_list = match list_query.list_id {
-        Some(id) => id,
-        None => {
-            // Check if list 3 exists, otherwise use first available list
-            match state.db.get_lists().await {
-                Ok(lists) => {
-                    if lists.iter().any(|list| list.id == 3) {
-                        3
-                    } else if !lists.is_empty() {
-                        lists[0].id
-                    } else {
-                        3 // Fallback if no lists exist
-                    }
-                }
-                _ => 3, // Fallback if error
-            }
-        }
-    };
+    let selected_list = determine_selected_list(&list_query, &state).await;
 
     let lists = state.db.get_lists().await.expect("Get list options");
     let template = ManageTemplate { selected_list, lists};
@@ -271,16 +295,14 @@ async fn new_recipe_form() -> impl IntoResponse {
     HtmlTemplate(template).into_response()
 }
 
-async fn create_recipe(
-    State(state): State<AppState>,
-    mut multipart: Multipart,
-) -> impl IntoResponse {
+// Helper function to parse recipe form data
+async fn parse_recipe_multipart(mut multipart: Multipart) -> Result<(String, String, String, Vec<PhotoData>), StatusCode> {
     let mut title = String::new();
     let mut instructions = String::new();
     let mut ingredients = String::new();
-    let mut photo_files = Vec::new();
+    let mut photos = Vec::new();
+    let limits = PhotoUploadLimits::default();
 
-    // Parse multipart form data
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
         let name = field.name().unwrap_or("").to_string();
         
@@ -307,8 +329,12 @@ async fn create_recipe(
                         let content_type = content_type.to_string();
                         if is_supported_image_type(&content_type) {
                             if let Ok(data) = field.bytes().await {
-                                if data.len() <= 10 * 1024 * 1024 { // 10MB limit
-                                    photo_files.push((filename, content_type, data));
+                                if data.len() <= limits.max_file_size && data.len() > 0 {
+                                    photos.push(PhotoData {
+                                        filename,
+                                        content_type,
+                                        data,
+                                    });
                                 }
                             }
                         }
@@ -320,54 +346,49 @@ async fn create_recipe(
     }
 
     if title.is_empty() {
-        return (StatusCode::BAD_REQUEST, "Title is required").into_response();
+        return Err(StatusCode::BAD_REQUEST);
     }
 
-    // Create recipe first
-    match state.db.create_recipe(title, instructions, ingredients).await {
-        Ok(recipe_id) => {
-            // Process uploaded photos
-            let mut uploaded_count = 0;
-            for (i, (filename, content_type, data)) in photo_files.into_iter().enumerate() {
-                if uploaded_count >= 10 { break; }
+    Ok((title, instructions, ingredients, photos))
+}
 
-                // Generate unique filename
-                let file_extension = match content_type.as_str() {
-                    "image/jpeg" | "image/jpg" => "jpg",
-                    "image/png" => "png", 
-                    "image/webp" => "webp",
-                    _ => "jpg",
-                };
-                
-                let unique_filename = format!("{}.{}", Uuid::new_v4(), file_extension);
-                let file_path = state.photos_dir.join(&unique_filename);
+async fn create_recipe(
+    State(state): State<AppState>,
+    multipart: Multipart,
+) -> impl IntoResponse {
+    // Parse multipart form data
+    let (title, instructions, ingredients, photos) = match parse_recipe_multipart(multipart).await {
+        Ok(data) => data,
+        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid form data or missing title").into_response(),
+    };
 
-                // Save file to disk
-                if let Ok(mut file) = std::fs::File::create(&file_path) {
-                    if file.write_all(&data).is_ok() {
-                        // Generate thumbnail
-                        let thumbnail = generate_thumbnail(&data, 200).ok();
-                        
-                        // Save to database
-                        if state.db.create_recipe_photo(
-                            recipe_id,
-                            unique_filename,
-                            filename,
-                            data.len() as i64,
-                            content_type,
-                            i as i32,
-                            thumbnail,
-                        ).await.is_ok() {
-                            uploaded_count += 1;
-                        }
-                    }
-                }
-            }
+    // Create recipe in database
+    let recipe_id = match state.db.create_recipe(title, instructions, ingredients).await {
+        Ok(id) => id,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
 
-            Redirect::to("/recipes").into_response()
+    // Process uploaded photos
+    let mut uploaded_count = 0;
+    let limits = PhotoUploadLimits::default();
+    
+    for photo in photos {
+        if uploaded_count >= limits.max_photos {
+            break;
         }
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response()
+
+        match save_photo_to_disk_and_db(photo, recipe_id, &state).await {
+            Ok(_) => {
+                uploaded_count += 1;
+                info!("Photo uploaded for new recipe, total: {}", uploaded_count);
+            }
+            Err(e) => {
+                warn!("Failed to save photo for new recipe: {}", e);
+            }
+        }
     }
+
+    Redirect::to("/recipes").into_response()
 }
 
 async fn view_recipe(
@@ -461,32 +482,10 @@ async fn add_recipe_to_list(
         Err(_) => return StatusCode::NOT_FOUND.into_response()
     };
     
-    // Parse form data manually to handle multiple checkbox values
-    let form_data = std::str::from_utf8(&body).unwrap_or("");
-    let mut params = Vec::new();
-    
-    for pair in form_data.split('&') {
-        if let Some((key, value)) = pair.split_once('=') {
-            // Simple URL decode for + and %20 (space)
-            let value = value.replace('+', " ").replace("%20", " ");
-            params.push((key.to_string(), value));
-        }
-    }
-    
-    let mut list_id = 0;
-    let mut ingredients = Vec::new();
-    
-    for (key, value) in params {
-        match key.as_str() {
-            "list_id" => {
-                list_id = value.parse().unwrap_or(0);
-            }
-            "ingredients" => {
-                ingredients.push(value);
-            }
-            _ => {}
-        }
-    }
+    // Parse form data using helper function
+    let parsed_data = parse_checkbox_form(&body);
+    let list_id = parsed_data.list_id;
+    let ingredients = parsed_data.ingredients;
     
     // Add each selected ingredient as a task
     for ingredient in &ingredients {
@@ -544,50 +543,36 @@ async fn add_recipe_to_meal_plan(
     }
 }
 
-// Meal plan handlers
-async fn meal_plan_page(Query(params): Query<WeekQuery>, State(state): State<AppState>) -> impl IntoResponse {
-    use chrono::{Utc, NaiveDate, Datelike, Duration};
-    use std::collections::HashMap;
-    
-    let start_date = match params.week {
+// Meal plan helpers
+fn get_week_start_monday() -> chrono::NaiveDate {
+    use chrono::{Utc, Datelike, Duration};
+    let today = Utc::now().date_naive();
+    let days_since_monday = today.weekday().num_days_from_monday();
+    today - Duration::days(days_since_monday as i64)
+}
+
+fn parse_week_start_date(week_param: Option<String>) -> chrono::NaiveDate {
+    use chrono::NaiveDate;
+    match week_param {
         Some(week_str) => {
             NaiveDate::parse_from_str(&week_str, "%Y-%m-%d")
-                .unwrap_or_else(|_| {
-                    let today = Utc::now().date_naive();
-                    let days_since_monday = today.weekday().num_days_from_monday();
-                    today - Duration::days(days_since_monday as i64)
-                })
+                .unwrap_or_else(|_| get_week_start_monday())
         }
-        None => {
-            // Get start of current week (Monday)
-            let today = Utc::now().date_naive();
-            let days_since_monday = today.weekday().num_days_from_monday();
-            today - Duration::days(days_since_monday as i64)
-        }
-    };
-    
-    let start_date_str = start_date.format("%Y-%m-%d").to_string();
-    let prev_week = (start_date - Duration::days(7)).format("%Y-%m-%d").to_string();
-    let next_week = (start_date + Duration::days(7)).format("%Y-%m-%d").to_string();
-    
-    // Get all meals for this week
-    let meal_plan = state.db.get_meal_plan_for_week(start_date_str.clone()).await.unwrap_or_default();
-    
-    // Group meals by date
-    let mut meals_by_date: HashMap<String, Vec<_>> = HashMap::new();
-    for meal in meal_plan {
-        meals_by_date.entry(meal.date.clone()).or_default().push(meal);
+        None => get_week_start_monday(),
     }
-    
-    // Create week structure with all 7 days
+}
+
+fn build_week_structure(start_date: chrono::NaiveDate, meals_by_date: std::collections::HashMap<String, Vec<crate::todo::MealPlanEntry>>) -> Vec<WeekDay> {
+    use chrono::Duration;
     let day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
     let mut week_days = Vec::new();
+    let mut meals_map = meals_by_date;
     
     for i in 0..7 {
         let date = start_date + Duration::days(i);
         let date_str = date.format("%Y-%m-%d").to_string();
         let day_name = day_names[i as usize].to_string();
-        let meals = meals_by_date.remove(&date_str).unwrap_or_default();
+        let meals = meals_map.remove(&date_str).unwrap_or_default();
         
         week_days.push(WeekDay {
             day_name,
@@ -595,6 +580,28 @@ async fn meal_plan_page(Query(params): Query<WeekQuery>, State(state): State<App
             meals,
         });
     }
+    
+    week_days
+}
+
+// Meal plan handlers
+async fn meal_plan_page(Query(params): Query<WeekQuery>, State(state): State<AppState>) -> impl IntoResponse {
+    use chrono::Duration;
+    use std::collections::HashMap;
+    
+    let start_date = parse_week_start_date(params.week);
+    let start_date_str = start_date.format("%Y-%m-%d").to_string();
+    let prev_week = (start_date - Duration::days(7)).format("%Y-%m-%d").to_string();
+    let next_week = (start_date + Duration::days(7)).format("%Y-%m-%d").to_string();
+    
+    // Get all meals for this week and group by date
+    let meal_plan = state.db.get_meal_plan_for_week(start_date_str.clone()).await.unwrap_or_default();
+    let mut meals_by_date: HashMap<String, Vec<_>> = HashMap::new();
+    for meal in meal_plan {
+        meals_by_date.entry(meal.date.clone()).or_default().push(meal);
+    }
+    
+    let week_days = build_week_structure(start_date, meals_by_date);
     
     let template = MealPlanTemplate { 
         start_date: start_date_str,
@@ -667,7 +674,7 @@ async fn weekly_ingredients_form(
     State(state): State<AppState>,
     Path(start_date): Path<String>,
 ) -> impl IntoResponse {
-    use chrono::{NaiveDate, Duration};
+    use chrono::NaiveDate;
     
     // Parse start date and calculate week range
     let _start = NaiveDate::parse_from_str(&start_date, "%Y-%m-%d")
@@ -709,32 +716,10 @@ async fn add_weekly_ingredients(
     Path(_start_date): Path<String>,
     RawForm(body): RawForm,
 ) -> impl IntoResponse {
-    // Parse form data manually to handle multiple checkbox values
-    let form_data = std::str::from_utf8(&body).unwrap_or("");
-    let mut params = Vec::new();
-    
-    for pair in form_data.split('&') {
-        if let Some((key, value)) = pair.split_once('=') {
-            // Simple URL decode for + and %20 (space)
-            let value = value.replace('+', " ").replace("%20", " ");
-            params.push((key.to_string(), value));
-        }
-    }
-    
-    let mut list_id = 0;
-    let mut ingredients = Vec::new();
-    
-    for (key, value) in params {
-        match key.as_str() {
-            "list_id" => {
-                list_id = value.parse().unwrap_or(0);
-            }
-            "ingredients" => {
-                ingredients.push(value);
-            }
-            _ => {}
-        }
-    }
+    // Parse form data using helper function
+    let parsed_data = parse_checkbox_form(&body);
+    let list_id = parsed_data.list_id;
+    let ingredients = parsed_data.ingredients;
     
     // Add each selected ingredient as a task
     for ingredient in &ingredients {
@@ -763,21 +748,173 @@ fn generate_thumbnail(image_data: &[u8], max_size: u32) -> anyhow::Result<Vec<u8
     Ok(buffer)
 }
 
-fn get_image_format_from_mime(mime_type: &str) -> Option<ImageFormat> {
-    match mime_type {
-        "image/jpeg" => Some(ImageFormat::Jpeg),
-        "image/jpg" => Some(ImageFormat::Jpeg),
-        "image/png" => Some(ImageFormat::Png),
-        "image/webp" => Some(ImageFormat::WebP),
-        _ => None,
-    }
-}
 
 fn is_supported_image_type(mime_type: &str) -> bool {
     matches!(mime_type, "image/jpeg" | "image/jpg" | "image/png" | "image/webp")
 }
 
-// Unified photo upload handler using multer (based on Rust forum solution)
+// Photo upload helper functions
+#[derive(Debug)]
+struct PhotoData {
+    filename: String,
+    content_type: String,
+    data: bytes::Bytes,
+}
+
+struct PhotoUploadLimits {
+    max_photos: usize,
+    max_file_size: usize,
+}
+
+impl Default for PhotoUploadLimits {
+    fn default() -> Self {
+        Self {
+            max_photos: 10,
+            max_file_size: 10 * 1024 * 1024, // 10MB
+        }
+    }
+}
+
+async fn validate_photo_upload_preconditions(
+    state: &AppState,
+    recipe_id: usize,
+    limits: &PhotoUploadLimits,
+) -> Result<usize, StatusCode> {
+    // Check recipe exists
+    if state.db.get_recipe(recipe_id).await.is_err() {
+        warn!("Recipe {} not found", recipe_id);
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // Get current photo count
+    let existing_photos = state.db.get_recipe_photos(recipe_id).await.unwrap_or_default();
+    if existing_photos.len() >= limits.max_photos {
+        warn!("Recipe {} already has max photos: {}", recipe_id, existing_photos.len());
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    Ok(existing_photos.len())
+}
+
+async fn parse_multipart_photos(
+    body: bytes::Bytes, 
+    content_type: &str,
+    limits: &PhotoUploadLimits,
+) -> Vec<PhotoData> {
+    let stream = once(async move { Result::<bytes::Bytes, Infallible>::Ok(body) });
+    
+    let boundary = match multer::parse_boundary(content_type) {
+        Ok(boundary) => boundary,
+        Err(e) => {
+            warn!("Failed to parse multipart boundary: {}", e);
+            return vec![];
+        }
+    };
+
+    let mut multipart = multer::Multipart::new(stream, boundary);
+    let mut photos = Vec::new();
+
+    while let Ok(Some(field)) = multipart.next_field().await {
+        let name = field.name().unwrap_or("").to_string();
+        if name != "photos" {
+            continue;
+        }
+
+        let filename = field.file_name().map(|s| s.to_string()).unwrap_or_else(|| "upload".to_string());
+        let field_content_type = field.content_type()
+            .map(|mime| mime.as_ref())
+            .unwrap_or("application/octet-stream")
+            .to_string();
+        
+        if !is_supported_image_type(&field_content_type) {
+            warn!("Unsupported content type: {}", field_content_type);
+            continue;
+        }
+
+        match field.bytes().await {
+            Ok(data) if data.len() <= limits.max_file_size && data.len() > 0 => {
+                photos.push(PhotoData {
+                    filename,
+                    content_type: field_content_type,
+                    data,
+                });
+            }
+            Ok(data) if data.len() == 0 => {
+                info!("Empty photo data, skipping");
+            }
+            Ok(data) => {
+                warn!("Photo too large: {} bytes (max: {})", data.len(), limits.max_file_size);
+            }
+            Err(e) => {
+                warn!("Failed to read photo data: {}", e);
+            }
+        }
+    }
+
+    photos
+}
+
+fn parse_direct_image_upload(body: bytes::Bytes, content_type: &str, limits: &PhotoUploadLimits) -> Vec<PhotoData> {
+    if body.len() <= limits.max_file_size && body.len() > 0 {
+        vec![PhotoData {
+            filename: "mobile_upload".to_string(),
+            content_type: content_type.to_string(),
+            data: body,
+        }]
+    } else {
+        warn!("Direct image too large or empty: {} bytes", body.len());
+        vec![]
+    }
+}
+
+fn get_file_extension_from_content_type(content_type: &str) -> &str {
+    match content_type {
+        "image/jpeg" | "image/jpg" => "jpg",
+        "image/png" => "png",
+        "image/webp" => "webp",
+        _ => "jpg",
+    }
+}
+
+async fn save_photo_to_disk_and_db(
+    photo: PhotoData,
+    recipe_id: usize,
+    state: &AppState,
+) -> Result<(), anyhow::Error> {
+    // Ensure photos directory exists
+    std::fs::create_dir_all(&state.photos_dir)
+        .context("Failed to create photos directory")?;
+
+    // Generate unique filename
+    let file_extension = get_file_extension_from_content_type(&photo.content_type);
+    let unique_filename = format!("{}.{}", Uuid::new_v4(), file_extension);
+    let file_path = state.photos_dir.join(&unique_filename);
+
+    // Save file to disk
+    std::fs::write(&file_path, &photo.data)
+        .context("Failed to write photo to disk")?;
+
+    // Generate thumbnail
+    let thumbnail = generate_thumbnail(&photo.data, 200).ok();
+
+    // Get next order and save to database
+    let upload_order = state.db.get_next_photo_order(recipe_id).await.unwrap_or(0);
+    
+    state.db.create_recipe_photo(
+        recipe_id,
+        unique_filename,
+        photo.filename,
+        photo.data.len() as i64,
+        photo.content_type,
+        upload_order,
+        thumbnail,
+    ).await
+    .context("Failed to save photo to database")?;
+
+    Ok(())
+}
+
+// Simplified unified photo upload handler
 async fn upload_photos_unified(
     State(state): State<AppState>,
     Path(recipe_id): Path<u32>,
@@ -785,173 +922,47 @@ async fn upload_photos_unified(
     body: bytes::Bytes,
 ) -> impl IntoResponse {
     let recipe_id = recipe_id as usize;
-    
-    // Check that recipe exists
-    if state.db.get_recipe(recipe_id).await.is_err() {
-        warn!("Recipe {} not found", recipe_id);
-        return StatusCode::NOT_FOUND.into_response();
-    }
+    let limits = PhotoUploadLimits::default();
 
-    let mut uploaded_count = 0;
-    const MAX_PHOTOS: usize = 10;
-    const MAX_FILE_SIZE: usize = 10 * 1024 * 1024; // 10MB
+    // Validate preconditions
+    let existing_photo_count = match validate_photo_upload_preconditions(&state, recipe_id, &limits).await {
+        Ok(count) => count,
+        Err(status) => return status.into_response(),
+    };
 
-    // Get current photo count for this recipe
-    let existing_photos = state.db.get_recipe_photos(recipe_id).await.unwrap_or_default();
-    if existing_photos.len() >= MAX_PHOTOS {
-        warn!("Recipe {} already has max photos: {}", recipe_id, existing_photos.len());
-        return (StatusCode::BAD_REQUEST, "Maximum 10 photos per recipe").into_response();
-    }
-
-    info!("Processing unified photo upload for recipe {}, existing photos: {}", recipe_id, existing_photos.len());
-
-    // Get content type
+    // Get content type and parse photos
     let content_type = headers.get("content-type")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("");
 
-    info!("Content-Type: {}", content_type);
-
     let photos_data = if content_type.starts_with("multipart") {
-        // Handle multipart form data using multer
-        let stream = once(async move { Result::<bytes::Bytes, Infallible>::Ok(body) });
-        
-        let boundary = match multer::parse_boundary(content_type) {
-            Ok(boundary) => boundary,
-            Err(e) => {
-                warn!("Failed to parse multipart boundary: {}", e);
-                return (StatusCode::BAD_REQUEST, "Invalid multipart boundary").into_response();
-            }
-        };
-
-        let mut multipart = multer::Multipart::new(stream, boundary);
-        let mut photos = Vec::new();
-
-        while let Ok(Some(field)) = multipart.next_field().await {
-            let name = field.name().unwrap_or("").to_string();
-            info!("Processing multer field: {}", name);
-            
-            if name != "photos" {
-                continue;
-            }
-
-            let filename = field.file_name().map(|s| s.to_string()).unwrap_or_else(|| "upload".to_string());
-            let field_content_type = field.content_type()
-                .map(|mime| mime.as_ref())
-                .unwrap_or("application/octet-stream")
-                .to_string();
-            
-            info!("Multer photo - filename: {}, content-type: {}", filename, field_content_type);
-            
-            if !is_supported_image_type(&field_content_type) {
-                warn!("Unsupported content type: {}", field_content_type);
-                continue;
-            }
-
-            match field.bytes().await {
-                Ok(data) if data.len() <= MAX_FILE_SIZE && data.len() > 0 => {
-                    info!("Multer photo data size: {} bytes", data.len());
-                    photos.push((filename, field_content_type, data));
-                }
-                Ok(data) if data.len() == 0 => {
-                    info!("Empty photo data, skipping");
-                }
-                Ok(data) => {
-                    warn!("Photo too large: {} bytes (max: {})", data.len(), MAX_FILE_SIZE);
-                }
-                Err(e) => {
-                    warn!("Failed to read photo data from multer field: {}", e);
-                }
-            }
-        }
-
-        photos
+        parse_multipart_photos(body, content_type, &limits).await
     } else if content_type.starts_with("image/") {
-        // Handle direct image upload
-        info!("Direct image upload detected");
-        if body.len() <= MAX_FILE_SIZE && body.len() > 0 {
-            vec![("mobile_upload".to_string(), content_type.to_string(), body)]
-        } else {
-            warn!("Direct image too large or empty: {} bytes", body.len());
-            vec![]
-        }
+        parse_direct_image_upload(body, content_type, &limits)
     } else {
         warn!("Unsupported content type: {}", content_type);
         return (StatusCode::BAD_REQUEST, "Unsupported content type").into_response();
     };
 
-    // Process all collected photos
-    for (filename, photo_content_type, data) in photos_data {
-        if uploaded_count + existing_photos.len() >= MAX_PHOTOS {
+    // Process and save photos
+    let mut uploaded_count = 0;
+    for photo in photos_data {
+        if uploaded_count + existing_photo_count >= limits.max_photos {
             break;
         }
 
-        // Ensure photos directory exists
-        if let Err(e) = std::fs::create_dir_all(&state.photos_dir) {
-            warn!("Failed to create photos directory: {}", e);
-            continue;
-        }
-
-        // Generate unique filename
-        let file_extension = match photo_content_type.as_str() {
-            "image/jpeg" | "image/jpg" => "jpg",
-            "image/png" => "png", 
-            "image/webp" => "webp",
-            _ => "jpg",
-        };
-        
-        let unique_filename = format!("{}.{}", Uuid::new_v4(), file_extension);
-        let file_path = state.photos_dir.join(&unique_filename);
-
-        info!("Saving unified photo to: {:?}", file_path);
-
-        // Save file to disk
-        if let Ok(mut file) = std::fs::File::create(&file_path) {
-            if file.write_all(&data).is_ok() {
-                info!("Unified photo saved to disk successfully");
-                
-                // Generate thumbnail
-                let thumbnail = match generate_thumbnail(&data, 200) {
-                    Ok(thumb_data) => {
-                        info!("Thumbnail generated successfully, size: {} bytes", thumb_data.len());
-                        Some(thumb_data)
-                    }
-                    Err(e) => {
-                        warn!("Failed to generate thumbnail: {}", e);
-                        None
-                    }
-                };
-                
-                // Get next order
-                let upload_order = state.db.get_next_photo_order(recipe_id).await.unwrap_or(0);
-                
-                // Save to database
-                match state.db.create_recipe_photo(
-                    recipe_id,
-                    unique_filename,
-                    filename,
-                    data.len() as i64,
-                    photo_content_type,
-                    upload_order,
-                    thumbnail,
-                ).await {
-                    Ok(_) => {
-                        uploaded_count += 1;
-                        info!("Unified photo saved to database, total uploaded: {}", uploaded_count);
-                    }
-                    Err(e) => {
-                        warn!("Failed to save unified photo to database: {}", e);
-                    }
-                }
-            } else {
-                warn!("Failed to write unified photo data to file");
+        match save_photo_to_disk_and_db(photo, recipe_id, &state).await {
+            Ok(_) => {
+                uploaded_count += 1;
+                info!("Photo uploaded successfully, total: {}", uploaded_count);
             }
-        } else {
-            warn!("Failed to create unified photo file: {:?}", file_path);
+            Err(e) => {
+                warn!("Failed to save photo: {}", e);
+            }
         }
     }
 
-    info!("Unified upload complete. Total uploaded: {}", uploaded_count);
+    info!("Upload complete. Total uploaded: {}", uploaded_count);
     
     if uploaded_count > 0 {
         Redirect::to(&format!("/recipes/{}", recipe_id)).into_response()
