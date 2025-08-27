@@ -13,7 +13,7 @@ async fn test_meal_plan_page_loads() {
     
     response.assert_status_ok();
     response.assert_text_contains("Meal Plan");
-    response.assert_text_contains("Week of");
+    response.assert_text_contains("Week ");
     response.assert_text_contains("Previous Week");
     response.assert_text_contains("Next Week");
     response.assert_text_contains("Monday");
@@ -52,12 +52,16 @@ async fn test_meal_plan_week_navigation() {
     // Test next week navigation
     let response = server.get(&format!("/meal-plan?week={}", next_week_start.format("%Y-%m-%d"))).await;
     response.assert_status_ok();
-    response.assert_text_contains(&format!("Week of {}", next_week_start.format("%Y-%m-%d")));
+    let next_week_number = next_week_start.iso_week().week();
+    let next_week_year = next_week_start.iso_week().year();
+    response.assert_text_contains(&format!("Week {}, {}", next_week_number, next_week_year));
     
     // Test previous week navigation
     let response = server.get(&format!("/meal-plan?week={}", prev_week_start.format("%Y-%m-%d"))).await;
     response.assert_status_ok();
-    response.assert_text_contains(&format!("Week of {}", prev_week_start.format("%Y-%m-%d")));
+    let prev_week_number = prev_week_start.iso_week().week();
+    let prev_week_year = prev_week_start.iso_week().year();
+    response.assert_text_contains(&format!("Week {}, {}", prev_week_number, prev_week_year));
 }
 
 #[tokio::test]

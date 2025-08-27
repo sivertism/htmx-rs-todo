@@ -108,6 +108,7 @@ pub struct WeeklyIngredientsForm {
 #[derive(Clone, Debug)]
 pub struct WeekDay {
     pub day_name: String,
-    pub date: String,
+    pub date: String,          // Display format (dd.MM.yy)
+    pub db_date: String,       // Database format (YYYY-MM-DD) for URLs
     pub meals: Vec<MealPlanEntry>,
 }

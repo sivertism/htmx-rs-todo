@@ -26,7 +26,7 @@ test.describe('Basic App Functionality', () => {
     // Navigate to meal plan
     await page.click('nav a[href="/meal-plan"]');
     await expect(page).toHaveURL('/meal-plan');
-    await expect(page.locator('h1')).toContainText('Week of');
+    await expect(page.locator('h2')).toContainText('Week ');
     
     // Navigate to manage
     await page.click('nav a[href="/manage"]');
@@ -104,7 +104,7 @@ test.describe('Basic App Functionality', () => {
     
     // Check meal plan on mobile
     await page.goto('/meal-plan');
-    await expect(page.locator('h1')).toContainText('Week of');
+    await expect(page.locator('h2')).toContainText('Week ');
     await expect(page.locator('.meal-plan-grid')).toBeVisible();
   });
 

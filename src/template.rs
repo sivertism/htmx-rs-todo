@@ -88,6 +88,8 @@ pub struct RecipeFormTemplate {
 #[template(path = "meal_plan.html")]
 pub struct MealPlanTemplate {
     pub start_date: String,
+    pub week_number: u32,
+    pub week_year: i32,
     pub prev_week: String,
     pub next_week: String,
     pub week_days: Vec<WeekDay>,
@@ -96,7 +98,8 @@ pub struct MealPlanTemplate {
 #[derive(Template)]
 #[template(path = "add_meal_form.html")]
 pub struct AddMealFormTemplate {
-    pub date: String,
+    pub date: String,           // Database format (YYYY-MM-DD) for forms
+    pub display_date: String,   // Display format (dd.MM.yy) for UI
     pub recipes: Vec<Recipe>,
 }
 
@@ -116,7 +119,8 @@ pub struct RecipeToMealPlanTemplate {
 #[derive(Template)]
 #[template(path = "weekly_ingredients.html")]
 pub struct WeeklyIngredientsTemplate {
-    pub start_date: String,
+    pub start_date: String,         // Database format (YYYY-MM-DD) for URLs
+    pub display_date: String,       // Display format (dd.MM.yy) for UI
     pub ingredients: Vec<String>,
     pub lists: Vec<List>,
 }

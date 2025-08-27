@@ -576,13 +576,15 @@ fn build_week_structure(start_date: chrono::NaiveDate, meals_by_date: std::colle
     
     for i in 0..7 {
         let date = start_date + Duration::days(i);
-        let date_str = date.format("%Y-%m-%d").to_string();
+        let date_str_db = date.format("%Y-%m-%d").to_string(); // Keep for database queries
+        let date_str_display = date.format("%d.%m.%y").to_string(); // New format for display
         let day_name = day_names[i as usize].to_string();
-        let meals = meals_map.remove(&date_str).unwrap_or_default();
+        let meals = meals_map.remove(&date_str_db).unwrap_or_default();
         
         week_days.push(WeekDay {
             day_name,
-            date: date_str,
+            date: date_str_display,
+            db_date: date_str_db,
             meals,
         });
     }
@@ -592,13 +594,18 @@ fn build_week_structure(start_date: chrono::NaiveDate, meals_by_date: std::colle
 
 // Meal plan handlers
 async fn meal_plan_page(Query(params): Query<WeekQuery>, State(state): State<AppState>) -> impl IntoResponse {
-    use chrono::Duration;
+    use chrono::{Duration, Datelike};
     use std::collections::HashMap;
     
     let start_date = parse_week_start_date(params.week);
     let start_date_str = start_date.format("%Y-%m-%d").to_string();
     let prev_week = (start_date - Duration::days(7)).format("%Y-%m-%d").to_string();
     let next_week = (start_date + Duration::days(7)).format("%Y-%m-%d").to_string();
+    
+    // Calculate week number and year
+    let iso_week = start_date.iso_week();
+    let week_number = iso_week.week();
+    let week_year = iso_week.year();
     
     // Get all meals for this week and group by date
     let meal_plan = state.db.get_meal_plan_for_week(start_date_str.clone()).await.unwrap_or_default();
@@ -611,6 +618,8 @@ async fn meal_plan_page(Query(params): Query<WeekQuery>, State(state): State<App
     
     let template = MealPlanTemplate { 
         start_date: start_date_str,
+        week_number,
+        week_year,
         prev_week,
         next_week,
         week_days,
@@ -622,10 +631,17 @@ async fn add_meal_form(
     State(state): State<AppState>,
     Path(date): Path<String>,
 ) -> impl IntoResponse {
+    // Parse and format the date for display
+    let display_date = match chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
+        Ok(parsed_date) => parsed_date.format("%d.%m.%y").to_string(),
+        Err(_) => date.clone(), // Fallback to original if parsing fails
+    };
+
     match state.db.get_recipes().await {
         Ok(recipes) => {
             let template = AddMealFormTemplate { 
                 date,
+                display_date,
                 recipes
             };
             HtmlTemplate(template).into_response()
@@ -633,6 +649,7 @@ async fn add_meal_form(
         Err(_) => {
             let template = AddMealFormTemplate { 
                 date,
+                display_date,
                 recipes: vec![]
             };
             HtmlTemplate(template).into_response()
@@ -683,8 +700,11 @@ async fn weekly_ingredients_form(
     use chrono::NaiveDate;
     
     // Parse start date and calculate week range
-    let _start = NaiveDate::parse_from_str(&start_date, "%Y-%m-%d")
+    let parsed_start = NaiveDate::parse_from_str(&start_date, "%Y-%m-%d")
         .unwrap_or_else(|_| chrono::Utc::now().date_naive());
+    
+    // Format the date in dd.MM.yy format for display
+    let formatted_start_date = parsed_start.format("%d.%m.%y").to_string();
     
     // Get all meal plan entries for this week that have recipes
     let meal_entries = state.db.get_meal_plan_for_week(start_date.clone()).await.unwrap_or_default();
@@ -707,6 +727,7 @@ async fn weekly_ingredients_form(
     let lists = state.db.get_lists().await.unwrap_or_default();
     let template = WeeklyIngredientsTemplate {
         start_date,
+        display_date: formatted_start_date,
         ingredients: all_ingredients,
         lists,
     };

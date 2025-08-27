@@ -139,7 +139,7 @@
       <a href="/meal-plan?week={{ prev_week }}" role="button" class="outline">← Previous Week</a>
       
       <h2 class="week-title week-info">
-        Week of {{ start_date }}
+        Week {{ week_number }}, {{ week_year }}
       </h2>
       
       <a href="/meal-plan?week={{ next_week }}" role="button" class="outline">Next Week →</a>
@@ -183,7 +183,7 @@
           </div>
           
           <a 
-            href="/meal-plan/{{ day.date }}/add" 
+            href="/meal-plan/{{ day.db_date }}/add" 
             class="add-meal-btn" 
             role="button"
           >
