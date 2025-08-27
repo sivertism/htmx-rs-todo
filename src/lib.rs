@@ -17,7 +17,7 @@ use serde::Deserialize;
 use anyhow::Context;
 use template::*;
 use askama::Template;
-use todo::{ListForm, Task, TaskForm, RecipeForm, MealForm, RecipeToMealPlanForm, WeekDay};
+use todo::{ListForm, Task, TaskForm, MealForm, RecipeToMealPlanForm, WeekDay};
 use tracing::{info, warn};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -424,13 +424,19 @@ async fn edit_recipe_form(
 async fn update_recipe(
     State(state): State<AppState>,
     Path(id): Path<u32>,
-    form: Form<RecipeForm>,
+    multipart: Multipart,
 ) -> impl IntoResponse {
+    // Parse multipart form data (ignoring photos for updates)
+    let (title, instructions, ingredients, _photos) = match parse_recipe_multipart(multipart).await {
+        Ok(data) => data,
+        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid form data or missing title").into_response(),
+    };
+
     match state.db.update_recipe(
         id as usize,
-        form.title.clone(),
-        form.instructions.clone(),
-        form.ingredients.clone(),
+        title,
+        instructions,
+        ingredients,
     ).await {
         Ok(_) => {
             Redirect::to(&format!("/recipes/{}", id)).into_response()

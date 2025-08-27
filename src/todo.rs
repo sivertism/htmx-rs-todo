@@ -51,7 +51,20 @@ pub struct RecipeForm {
 #[derive(Deserialize)]
 pub struct MealForm {
     pub meal_text: String,
+    #[serde(default, deserialize_with = "deserialize_optional_usize")]
     pub recipe_id: Option<usize>,
+}
+
+fn deserialize_optional_usize<'de, D>(deserializer: D) -> Result<Option<usize>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    match s {
+        Some(s) if s.is_empty() => Ok(None),
+        Some(s) => s.parse().map(Some).map_err(serde::de::Error::custom),
+        None => Ok(None),
+    }
 }
 
 #[derive(Clone, Debug)]

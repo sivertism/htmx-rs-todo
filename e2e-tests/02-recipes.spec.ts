@@ -92,6 +92,10 @@ test.describe('Recipe Management', () => {
     const firstRecipe = page.locator('.recipe-card').first();
     await firstRecipe.locator('a').first().click();
     
+    // Get the recipe ID from the URL
+    await page.waitForURL(/\/recipes\/\d+$/);
+    const recipeId = page.url().match(/\/recipes\/(\d+)$/)?.[1];
+    
     // Click edit button
     await page.click('a[href*="/edit"]');
     
@@ -103,20 +107,14 @@ test.describe('Recipe Management', () => {
     const titleInput = page.locator('input[name="title"]');
     await titleInput.fill(updatedTitle);
     
-    // Submit changes
-    await page.click('button[type="submit"]');
+    // Submit changes and wait for navigation
+    await Promise.all([
+      page.waitForURL(`/recipes/${recipeId}`, { timeout: 10000 }),
+      page.click('button[type="submit"]')
+    ]);
     
-    // Should redirect (may redirect to recipes list or recipe detail)
-    await page.waitForTimeout(1000);
-    await expect(page).toHaveURL(/\/recipes/);
-    
-    // Try to find updated title on current page or navigate to recipe detail
-    if (await page.locator('h1:has-text("Recipes")').isVisible()) {
-      // Redirected to recipes list, find and click the updated recipe
-      await page.click('text=' + updatedTitle);
-    }
-    
-    // Now should see the updated title
+    // Wait for the page to load and check for the updated title
+    await page.waitForLoadState('networkidle');
     await expect(page.locator('h1')).toContainText(updatedTitle);
   });
 

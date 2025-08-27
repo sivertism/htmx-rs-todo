@@ -160,5 +160,24 @@
       </div>
     </form>
   </main>
+
+<script>
+// Auto-populate meal text when recipe is selected
+document.addEventListener('DOMContentLoaded', function() {
+  const recipeSelect = document.getElementById('recipe_id');
+  const mealTextArea = document.getElementById('meal_text');
+  
+  if (recipeSelect && mealTextArea) {
+    recipeSelect.addEventListener('change', function() {
+      const selectedOption = this.options[this.selectedIndex];
+      if (this.value && selectedOption.text !== '-- Choose a recipe --') {
+        mealTextArea.value = selectedOption.text;
+      } else {
+        mealTextArea.value = '';
+      }
+    });
+  }
+});
+</script>
 </body>
 </html>

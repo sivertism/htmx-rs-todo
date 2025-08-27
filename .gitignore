@@ -1,3 +1,5 @@
 /target
 todos.db
 data/photos
+test-results
+playwright-report

@@ -17,9 +17,9 @@ test.describe('Drag & Drop Functionality', () => {
     const tasks = ['First Task', 'Second Task', 'Third Task', 'Fourth Task'];
     for (const task of tasks) {
       await page.fill('input[placeholder="Add new task"]', task);
-      await page.click('button[type="submit"]');
+      await page.press('input[placeholder="Add new task"]', 'Enter');
       // Wait a bit to ensure tasks are created in order
-      await page.waitForTimeout(100);
+      await page.waitForTimeout(200);
     }
   });
 
@@ -28,11 +28,11 @@ test.describe('Drag & Drop Functionality', () => {
     await page.selectOption('select', { label: 'Drag Test List' });
     
     // Check that tasks are present
-    const tasks = page.locator('[data-task-id]');
+    const tasks = page.locator('tr.tasks');
     await expect(tasks).toHaveCount(4);
     
     // Check for sortable functionality (Sortable.js should be loaded)
-    const sortableContainer = page.locator('#sortable-tasks');
+    const sortableContainer = page.locator('#tasktablebody');
     await expect(sortableContainer).toBeVisible();
     
     // Verify Sortable.js is loaded
@@ -47,12 +47,12 @@ test.describe('Drag & Drop Functionality', () => {
     await page.selectOption('select', { label: 'Drag Test List' });
     
     // Get initial task order
-    const initialTasks = await page.locator('[data-task-id]').allTextContents();
+    const initialTasks = await page.locator('tr.tasks').allTextContents();
     expect(initialTasks).toEqual(['First Task', 'Second Task', 'Third Task', 'Fourth Task']);
     
     // Perform drag and drop using mouse actions
-    const firstTask = page.locator('[data-task-id]').first();
-    const thirdTask = page.locator('[data-task-id]').nth(2);
+    const firstTask = page.locator('tr.tasks').first();
+    const thirdTask = page.locator('tr.tasks').nth(2);
     
     // Get bounding boxes for precise dragging
     const firstTaskBox = await firstTask.boundingBox();
@@ -69,7 +69,7 @@ test.describe('Drag & Drop Functionality', () => {
       await page.waitForTimeout(500);
       
       // Check new order
-      const newTasks = await page.locator('[data-task-id]').allTextContents();
+      const newTasks = await page.locator('tr.tasks').allTextContents();
       expect(newTasks).not.toEqual(initialTasks);
       
       // First task should no longer be first
@@ -82,8 +82,8 @@ test.describe('Drag & Drop Functionality', () => {
     await page.selectOption('select', { label: 'Drag Test List' });
     
     // Perform a simple reorder (move second task to first position)
-    const secondTask = page.locator('[data-task-id]').nth(1);
-    const firstTask = page.locator('[data-task-id]').first();
+    const secondTask = page.locator('tr.tasks').nth(1);
+    const firstTask = page.locator('tr.tasks').first();
     
     const secondTaskBox = await secondTask.boundingBox();
     const firstTaskBox = await firstTask.boundingBox();
@@ -98,14 +98,14 @@ test.describe('Drag & Drop Functionality', () => {
       await page.waitForTimeout(1000);
       
       // Get order after drag
-      const tasksAfterDrag = await page.locator('[data-task-id]').allTextContents();
+      const tasksAfterDrag = await page.locator('tr.tasks').allTextContents();
       
       // Reload page
       await page.reload();
       await page.selectOption('select', { label: 'Drag Test List' });
       
       // Order should be preserved
-      const tasksAfterReload = await page.locator('[data-task-id]').allTextContents();
+      const tasksAfterReload = await page.locator('tr.tasks').allTextContents();
       expect(tasksAfterReload).toEqual(tasksAfterDrag);
     }
   });
@@ -123,11 +123,11 @@ test.describe('Drag & Drop Functionality', () => {
     await page.waitForTimeout(500);
     
     // Get current task order
-    const tasksBeforeDrag = await page.locator('[data-task-id]').allTextContents();
+    const tasksBeforeDrag = await page.locator('tr.tasks').allTextContents();
     
     // Try to reorder (move first incomplete task)
-    const firstIncompleteTask = page.locator('[data-task-id]').first();
-    const secondTaskBox = await page.locator('[data-task-id]').nth(1).boundingBox();
+    const firstIncompleteTask = page.locator('tr.tasks').first();
+    const secondTaskBox = await page.locator('tr.tasks').nth(1).boundingBox();
     const firstTaskBox = await firstIncompleteTask.boundingBox();
     
     if (firstTaskBox && secondTaskBox) {
@@ -139,7 +139,7 @@ test.describe('Drag & Drop Functionality', () => {
       await page.waitForTimeout(500);
       
       // Order should have changed
-      const tasksAfterDrag = await page.locator('[data-task-id]').allTextContents();
+      const tasksAfterDrag = await page.locator('tr.tasks').allTextContents();
       expect(tasksAfterDrag).not.toEqual(tasksBeforeDrag);
     }
   });
@@ -152,12 +152,12 @@ test.describe('Drag & Drop Functionality', () => {
     await page.selectOption('select', { label: 'Drag Test List' });
     
     // Tasks should still be visible
-    const tasks = page.locator('[data-task-id]');
+    const tasks = page.locator('tr.tasks');
     await expect(tasks).toHaveCount(4);
     
     // Try to perform drag action (should not work or be limited on mobile)
-    const firstTask = page.locator('[data-task-id]').first();
-    const secondTask = page.locator('[data-task-id]').nth(1);
+    const firstTask = page.locator('tr.tasks').first();
+    const secondTask = page.locator('tr.tasks').nth(1);
     
     const firstTaskBox = await firstTask.boundingBox();
     const secondTaskBox = await secondTask.boundingBox();
@@ -181,7 +181,7 @@ test.describe('Drag & Drop Functionality', () => {
     await page.selectOption('select', { label: 'Empty Drag Test List' });
     
     // Should not have any tasks to drag
-    const tasks = page.locator('[data-task-id]');
+    const tasks = page.locator('tr.tasks');
     await expect(tasks).toHaveCount(0);
     
     // Container should still exist for potential future tasks
@@ -200,7 +200,7 @@ test.describe('Drag & Drop Functionality', () => {
     await page.goto('/');
     await page.selectOption('select', { label: 'Drag Test List' });
     
-    const firstTask = page.locator('[data-task-id]').first();
+    const firstTask = page.locator('tr.tasks').first();
     
     // Hover over task to check for drag cursor or visual feedback
     await firstTask.hover();
@@ -230,8 +230,8 @@ test.describe('Drag & Drop Functionality', () => {
     });
     
     // Perform drag and drop
-    const firstTask = page.locator('[data-task-id]').first();
-    const secondTask = page.locator('[data-task-id]').nth(1);
+    const firstTask = page.locator('tr.tasks').first();
+    const secondTask = page.locator('tr.tasks').nth(1);
     
     const firstTaskBox = await firstTask.boundingBox();
     const secondTaskBox = await secondTask.boundingBox();
