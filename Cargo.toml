@@ -32,3 +32,20 @@ tokio-test = "0.4.4"
 tempfile = "3.12.0"
 tower = { version = "0.4", features = ["util"] }
 tokio-util = { version = "0.7", features = ["codec"] }
+
+# Optimize for faster builds
+[profile.release]
+# Keep some debug info for better error messages but optimize for size/speed
+debug = 1
+# Link-time optimization for smaller binaries
+lto = true
+# Reduce binary size
+strip = true
+# Optimize for size instead of speed
+opt-level = "s"
+
+[profile.dev]
+# Faster incremental compilation
+incremental = true
+# Reduce debug info for faster compilation
+debug = 1

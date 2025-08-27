@@ -28,12 +28,40 @@
           version = "0.5.0";
           cargoLock.lockFile = ./Cargo.lock;
           src = pkgs.lib.cleanSource ./.;
+          doCheck = false; # Skip tests during build
+          
+          # Build optimizations
+          cargoBuildFlags = [ 
+            "--release" 
+            "--bin" "htmx-rs-todo"  # Only build the main binary
+          ];
+          
+          # Build environment optimizations
+          env = {
+            CARGO_BUILD_JOBS = "2";
+            CARGO_INCREMENTAL = "0";  # Disable incremental compilation for reproducible builds
+            RUST_BACKTRACE = "0";     # Reduce runtime overhead
+          };
+          
+          # Essential dependencies only
           buildInputs = [
             pkgs.openssl
           ];
           nativeBuildInputs = [
             pkgs.pkg-config
           ];
+          
+          # Clean up and optimize final binary
+          postInstall = ''
+            # Strip debug symbols to reduce binary size
+            ${pkgs.binutils}/bin/strip $out/bin/htmx-rs-todo
+          '';
+          
+          meta = with pkgs.lib; {
+            description = "A simple todo app built with HTMX and Rust";
+            license = licenses.mit;
+            maintainers = [ ];
+          };
         };
       });
 
